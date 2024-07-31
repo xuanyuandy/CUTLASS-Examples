@@ -34,4 +34,4 @@ $ docker run -it --rm --gpus device=0 -v $(pwd):/mnt cutlass:${CUTLASS_VERSION}
 
 ## References
 
-- [CUTLASS Docker Container](https://leimao.github.io/article/CUDA-Matrix-Multiplication-Optimization/)
+- [CUTLASS Docker Container](https://leimao.github.io/blog/CUTLASS-Docker/)
