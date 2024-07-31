@@ -34,8 +34,8 @@ ENV LANGUAGE=en_US.UTF-8
 # Install CMake
 RUN cd /tmp && \
     wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.sh && \
-    bash cmake-${CMAKE_VERSION}-linux-x86_64.sh --prefix=/usr/local --exclude-subdir --skip-license
-RUN rm -rf /tmp/*
+    bash cmake-${CMAKE_VERSION}-linux-x86_64.sh --prefix=/usr/local --exclude-subdir --skip-license && \
+    rm -rf /tmp/*
 
 RUN cd /usr/local/bin && \
     ln -s /usr/bin/python3 python && \
