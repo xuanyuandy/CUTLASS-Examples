@@ -46,7 +46,9 @@ RUN cd /usr/local/bin && \
 RUN cd /tmp && \
     wget https://github.com/NVIDIA/cutlass/archive/refs/tags/v${CUTLASS_VERSION}.tar.gz && \
     tar -xvf v${CUTLASS_VERSION}.tar.gz && \
+    # Install the Python library
+    pip install cutlass-${CUTLASS_VERSION}/. && \
     # CUTLASS is header-only
     cp -r cutlass-${CUTLASS_VERSION}/include/* /usr/local/include/ && \
-    cp -r /tmp/cutlass-3.5.0/tools/util/include/cutlass/* /usr/local/include/cutlass/ && \
+    cp -r /tmp/cutlass-${CUTLASS_VERSION}/tools/util/include/cutlass/* /usr/local/include/cutlass/ && \
     rm -rf /tmp/*

@@ -15,7 +15,7 @@ Please adjust the base Docker container CUDA version if the host computer has a 
 To set the CUTLASS version, please run the following command.
 
 ```bash
-$ CUTLASS_VERSION=3.5.0
+$ CUTLASS_VERSION=3.5.1
 ```
 
 ### Build Docker Images
