@@ -23,7 +23,7 @@ $ CUTLASS_VERSION=3.5.1
 To build the custom Docker image, please run the following command.
 
 ```bash
-$ docker build -f docker/cutlass.Dockerfile --no-cache --build-arg CUTLASS_VERSION=${CUTLASS_VERSION} --tag=cutlass:${CUTLASS_VERSION} .
+$ docker build -f docker/cutlass.Dockerfile --no-cache --build-arg CUTLASS_VERSION=${CUTLASS_VERSION} --tag cutlass:${CUTLASS_VERSION} .
 ```
 
 ### Run Docker Container
