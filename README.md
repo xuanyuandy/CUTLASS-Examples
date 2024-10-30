@@ -44,6 +44,7 @@ To run the FP32 and FP16 GEMM CUDA kernels, please run the following commands in
 ```bash
 $ ./build/examples/gemm_api_v2/CUTLASS-GEMM-API-V2
 $ ./build/examples/gemm_api_v3/CUTLASS-GEMM-API-V3
+$ ./build/examples/cute_tiled_copy/CUTE-TILED-COPY
 ```
 
 ## References
