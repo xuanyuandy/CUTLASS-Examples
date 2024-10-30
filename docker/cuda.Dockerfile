@@ -1,6 +1,5 @@
 FROM nvcr.io/nvidia/cuda:12.4.1-devel-ubuntu22.04
 
-ARG CUTLASS_VERSION=3.5.1
 ARG CMAKE_VERSION=3.30.5
 ARG NUM_JOBS=8
 
@@ -41,14 +40,3 @@ RUN cd /usr/local/bin && \
     ln -s /usr/bin/python3 python && \
     ln -s /usr/bin/pip3 pip && \
     pip install --upgrade pip setuptools wheel
-
-# Download CUTLASS
-RUN cd /opt && \
-    wget https://github.com/NVIDIA/cutlass/archive/refs/tags/v${CUTLASS_VERSION}.tar.gz && \
-    tar -xvf v${CUTLASS_VERSION}.tar.gz && \
-    # Delete the tarball file
-    rm -rf /opt/v${CUTLASS_VERSION}.tar.gz && \
-    # Rename the directory
-    mv cutlass-${CUTLASS_VERSION} cutlass && \
-    # Install the Python library
-    pip install cutlass/.

@@ -1,10 +1,7 @@
 {
   "name": "CUTLASS",
   "build": {
-    "dockerfile": "../docker/cutlass.Dockerfile",
-    "args": {
-      "CUTLASS_VERSION": "3.5.1"
-    }
+    "dockerfile": "../docker/cuda.Dockerfile"
   },
   "runArgs": ["--gpus", "device=0"]
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
