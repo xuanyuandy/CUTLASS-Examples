@@ -73,9 +73,10 @@ bool compare(T const* data, T const* ref, unsigned int size)
 {
     for (unsigned int i{0}; i < size; ++i)
     {
-        std::cout << i << " " << data[i] << " " << ref[i] << std::endl;
+        // std::cout << i << " " << data[i] << " " << ref[i] << std::endl;
         if (data[i] != ref[i])
         {
+            std::cout << i << " " << data[i] << " " << ref[i] << std::endl;
             return false;
         }
     }
@@ -91,8 +92,11 @@ int main()
 
     using Element = int;
 
-    unsigned int const M{2048};
-    unsigned int const N{512};
+    // unsigned int const M{2048};
+    // unsigned int const N{512};
+
+    unsigned int const M{8192};
+    unsigned int const N{8192};
 
     auto const tensor_shape{cute::make_shape(M, N)};
     auto const tensor_shape_transposed{cute::make_shape(N, M)};
@@ -117,10 +121,10 @@ int main()
 
 
     using TILE_SIZE_X = cute::Int<64>;
-    using TILE_SIZE_Y = cute::Int<32>;
+    using TILE_SIZE_Y = cute::Int<64>;
 
     constexpr auto block_shape{cute::make_shape(TILE_SIZE_X{}, TILE_SIZE_Y{})};
-    // constexpr auto block_shape_transposed{cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
+    constexpr auto block_shape_transposed{cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
 
     auto const tiled_tensor_src{cute::tiled_divide(tensor_src, block_shape)}; // ((TILE_SIZE_X, TILE_SIZE_Y), M / TILE_SIZE_X, N / TILE_SIZE_Y)
     cute::print(tiled_tensor_src);
@@ -129,8 +133,8 @@ int main()
     cute::print(tiled_tensor_dst_transposed);
     std::cout << std::endl;
 
-    using THREAD_BLOCK_SIZE_X = cute::Int<32>;
-    using THREAD_BLOCK_SIZE_Y = cute::Int<8>;
+    using THREAD_BLOCK_SIZE_X = cute::Int<8>;
+    using THREAD_BLOCK_SIZE_Y = cute::Int<32>;
 
     constexpr auto thread_block_shape{cute::make_shape(THREAD_BLOCK_SIZE_X{}, THREAD_BLOCK_SIZE_Y{})};
     constexpr auto thread_layout{cute::make_layout(thread_block_shape, cute::GenRowMajor{})};
@@ -139,8 +143,9 @@ int main()
     dim3 const thread_dim{cute::size(thread_layout)};
 
     transpose_naive<<<grid_dim, thread_dim, 0, stream>>>(tiled_tensor_src, tiled_tensor_dst_transposed, thread_layout);
-
     CHECK_LAST_CUDA_ERROR();
+
+    CHECK_CUDA_ERROR(cudaStreamSynchronize(stream));
 
     h_dst = d_dst;
 
