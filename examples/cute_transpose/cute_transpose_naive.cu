@@ -130,6 +130,7 @@ int main()
     cute::print(tiled_tensor_src);
     std::cout << std::endl;
     auto const tiled_tensor_dst_transposed{cute::tiled_divide(tensor_dst_transposed, block_shape)}; // ((TILE_SIZE_Y, TILE_SIZE_X), N / TILE_SIZE_Y, M / TILE_SIZE_X)
+    // auto const tiled_tensor_dst_transposed{cute::tiled_divide(tensor_dst_transposed, block_shape_transposed)}; // ((TILE_SIZE_Y, TILE_SIZE_X), N / TILE_SIZE_Y, M / TILE_SIZE_X)
     cute::print(tiled_tensor_dst_transposed);
     std::cout << std::endl;
 
