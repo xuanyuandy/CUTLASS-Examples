@@ -1,7 +1,7 @@
 #include <iostream>
 
-#include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
 
 #include <cute/tensor.hpp>
 
@@ -12,7 +12,8 @@ void check(cudaError_t err, char const* func, char const* file, int line)
 {
     if (err != cudaSuccess)
     {
-        std::cerr << "CUDA Runtime Error at: " << file << ":" << line << std::endl;
+        std::cerr << "CUDA Runtime Error at: " << file << ":" << line
+                  << std::endl;
         std::cerr << cudaGetErrorString(err) << " " << func << std::endl;
         std::exit(EXIT_FAILURE);
     }
@@ -24,22 +25,32 @@ void checkLast(char const* file, int const line)
     cudaError_t const err{cudaGetLastError()};
     if (err != cudaSuccess)
     {
-        std::cerr << "CUDA Runtime Error at: " << file << ":" << line << std::endl;
+        std::cerr << "CUDA Runtime Error at: " << file << ":" << line
+                  << std::endl;
         std::cerr << cudaGetErrorString(err) << std::endl;
         std::exit(EXIT_FAILURE);
     }
 }
 
 template <class TENSOR_SRC, class TENSOR_DST, class THREAD_LAYOUT>
-__global__ void transpose_naive(TENSOR_SRC tensor_src, TENSOR_DST tensor_dst_transposed, THREAD_LAYOUT)
+__global__ void transpose_naive(TENSOR_SRC tensor_src,
+                                TENSOR_DST tensor_dst_transposed, THREAD_LAYOUT)
 {
     using Element = typename TENSOR_SRC::value_type;
 
-    auto global_tile_src{tensor_src(cute::make_coord(cute::_, cute::_), blockIdx.x, blockIdx.y)}; // (TILE_SIZE_X, TILE_SIZE_Y)
-    auto global_tile_dst_transposed{tensor_dst_transposed(cute::make_coord(cute::_, cute::_), blockIdx.x, blockIdx.y)}; // (TILE_SIZE_Y, TILE_SIZE_X)
+    auto global_tile_src{tensor_src(cute::make_coord(cute::_, cute::_),
+                                    blockIdx.x,
+                                    blockIdx.y)}; // (TILE_SIZE_X, TILE_SIZE_Y)
+    auto global_tile_dst_transposed{
+        tensor_dst_transposed(cute::make_coord(cute::_, cute::_), blockIdx.x,
+                              blockIdx.y)}; // (TILE_SIZE_Y, TILE_SIZE_X)
 
-    auto thread_tile_src{cute::local_partition(global_tile_src, THREAD_LAYOUT{}, threadIdx.x)}; // (THREAD_VALUE_SIZE_X, THREAD_VALUE_SIZE_Y)
-    auto thread_tile_dst_transposed{cute::local_partition(global_tile_dst_transposed, THREAD_LAYOUT{}, threadIdx.x)}; // (THREAD_VALUE_SIZE_X, THREAD_VALUE_SIZE_Y)
+    auto thread_tile_src{cute::local_partition(
+        global_tile_src, THREAD_LAYOUT{},
+        threadIdx.x)}; // (THREAD_VALUE_SIZE_X, THREAD_VALUE_SIZE_Y)
+    auto thread_tile_dst_transposed{cute::local_partition(
+        global_tile_dst_transposed, THREAD_LAYOUT{},
+        threadIdx.x)}; // (THREAD_VALUE_SIZE_X, THREAD_VALUE_SIZE_Y)
 
     auto register_fragment{cute::make_tensor_like(thread_tile_src)};
 
@@ -73,7 +84,6 @@ bool compare(T const* data, T const* ref, unsigned int size)
 {
     for (unsigned int i{0}; i < size; ++i)
     {
-        // std::cout << i << " " << data[i] << " " << ref[i] << std::endl;
         if (data[i] != ref[i])
         {
             std::cout << i << " " << data[i] << " " << ref[i] << std::endl;
@@ -84,6 +94,15 @@ bool compare(T const* data, T const* ref, unsigned int size)
     return true;
 }
 
+template <class T>
+void print(T const* data, T const* ref, unsigned int size)
+{
+    for (unsigned int i{0}; i < size; ++i)
+    {
+        std::cout << i << " " << data[i] << " " << ref[i] << std::endl;
+    }
+}
+
 int main()
 {
     // Create CUDA stream.
@@ -92,14 +111,11 @@ int main()
 
     using Element = int;
 
-    // unsigned int const M{2048};
-    // unsigned int const N{512};
+    unsigned int const M{2048}; // Number of columns.
+    unsigned int const N{1024}; // Number of rows.
 
-    unsigned int const M{8192};
-    unsigned int const N{8192};
-
-    auto const tensor_shape{cute::make_shape(M, N)};
-    auto const tensor_shape_transposed{cute::make_shape(N, M)};
+    auto const tensor_shape{cute::make_shape(N, M)};
+    auto const tensor_shape_transposed{cute::make_shape(M, N)};
 
     thrust::host_vector<Element> h_src(cute::size(tensor_shape));
     thrust::host_vector<Element> h_dst(cute::size(tensor_shape_transposed));
@@ -111,39 +127,90 @@ int main()
     thrust::device_vector<Element> d_src{h_src};
     thrust::device_vector<Element> d_dst{h_dst};
 
-    auto const global_memory_layout_src{cute::make_layout(tensor_shape, cute::GenRowMajor{})};
-    auto const global_memory_layout_dst{cute::make_layout(tensor_shape_transposed, cute::GenRowMajor{})};
-    auto const global_memory_layout_dst_transposed{cute::make_layout(tensor_shape, cute::GenColMajor{})};
+    auto const global_memory_layout_src{cute::make_layout(
+        tensor_shape, cute::GenRowMajor{})}; // (N, M) : (M, 1)
+    auto const global_memory_layout_dst{cute::make_layout(
+        tensor_shape_transposed, cute::GenRowMajor{})}; // (M, N) : (N, 1)
+    auto const global_memory_layout_dst_transposed{cute::make_layout(
+        tensor_shape, cute::GenColMajor{})}; // (N, M) : (1, N)
 
-    auto const tensor_src{cute::make_tensor(cute::make_gmem_ptr(thrust::raw_pointer_cast(d_src.data())), global_memory_layout_src)};
-    auto const tensor_dst{cute::make_tensor(cute::make_gmem_ptr(thrust::raw_pointer_cast(d_dst.data())), global_memory_layout_dst)};
-    auto const tensor_dst_transposed{cute::make_tensor(cute::make_gmem_ptr(thrust::raw_pointer_cast(d_dst.data())), global_memory_layout_dst_transposed)};
+    cute::print(global_memory_layout_src);
+    std::cout << std::endl;
+    cute::print(global_memory_layout_dst);
+    std::cout << std::endl;
+    cute::print(global_memory_layout_dst_transposed);
+    std::cout << std::endl;
 
+    auto const tensor_src{cute::make_tensor(
+        cute::make_gmem_ptr(thrust::raw_pointer_cast(d_src.data())),
+        global_memory_layout_src)};
+    auto const tensor_dst{cute::make_tensor(
+        cute::make_gmem_ptr(thrust::raw_pointer_cast(d_dst.data())),
+        global_memory_layout_dst)};
+    auto const tensor_dst_transposed{cute::make_tensor(
+        cute::make_gmem_ptr(thrust::raw_pointer_cast(d_dst.data())),
+        global_memory_layout_dst_transposed)};
 
     using TILE_SIZE_X = cute::Int<64>;
-    using TILE_SIZE_Y = cute::Int<64>;
+    using TILE_SIZE_Y = cute::Int<32>;
 
     constexpr auto block_shape{cute::make_shape(TILE_SIZE_X{}, TILE_SIZE_Y{})};
-    constexpr auto block_shape_transposed{cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
+    constexpr auto block_shape_transposed{
+        cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
 
-    auto const tiled_tensor_src{cute::tiled_divide(tensor_src, block_shape)}; // ((TILE_SIZE_X, TILE_SIZE_Y), M / TILE_SIZE_X, N / TILE_SIZE_Y)
+    auto const tiled_tensor_src{cute::tiled_divide(
+        tensor_src, block_shape)}; // ((TILE_SIZE_X, TILE_SIZE_Y), M /
+                                   // TILE_SIZE_X, N / TILE_SIZE_Y)
     cute::print(tiled_tensor_src);
     std::cout << std::endl;
-    auto const tiled_tensor_dst_transposed{cute::tiled_divide(tensor_dst_transposed, block_shape)}; // ((TILE_SIZE_Y, TILE_SIZE_X), N / TILE_SIZE_Y, M / TILE_SIZE_X)
-    // auto const tiled_tensor_dst_transposed{cute::tiled_divide(tensor_dst_transposed, block_shape_transposed)}; // ((TILE_SIZE_Y, TILE_SIZE_X), N / TILE_SIZE_Y, M / TILE_SIZE_X)
+    auto const tiled_tensor_dst_transposed{cute::tiled_divide(
+        tensor_dst_transposed, block_shape)}; // ((TILE_SIZE_Y, TILE_SIZE_X), N
+                                              // / TILE_SIZE_Y, M / TILE_SIZE_X)
     cute::print(tiled_tensor_dst_transposed);
     std::cout << std::endl;
 
-    using THREAD_BLOCK_SIZE_X = cute::Int<8>;
-    using THREAD_BLOCK_SIZE_Y = cute::Int<32>;
+    auto const g_src_example{
+        tiled_tensor_src(cute::make_coord(cute::_, cute::_), 0, 0)};
+    auto const g_dst_example{
+        tiled_tensor_dst_transposed(cute::make_coord(cute::_, cute::_), 0, 0)};
+    cute::print(g_src_example);
+    std::cout << std::endl;
+    cute::print(g_dst_example);
+    std::cout << std::endl;
 
-    constexpr auto thread_block_shape{cute::make_shape(THREAD_BLOCK_SIZE_X{}, THREAD_BLOCK_SIZE_Y{})};
-    constexpr auto thread_layout{cute::make_layout(thread_block_shape, cute::GenRowMajor{})};
+    using THREAD_BLOCK_SIZE_X = cute::Int<32>;
+    using THREAD_BLOCK_SIZE_Y = cute::Int<8>;
 
-    dim3 const grid_dim{cute::size<1>(tiled_tensor_src), cute::size<2>(tiled_tensor_src)};
+    static_assert(TILE_SIZE_X::value % THREAD_BLOCK_SIZE_X::value == 0,
+                  "TILE_SIZE_X must be divisible by THREAD_BLOCK_SIZE_X");
+    static_assert(TILE_SIZE_Y::value % THREAD_BLOCK_SIZE_Y::value == 0,
+                  "TILE_SIZE_Y must be divisible by THREAD_BLOCK_SIZE_Y");
+
+    constexpr auto thread_block_shape{
+        cute::make_shape(THREAD_BLOCK_SIZE_X{}, THREAD_BLOCK_SIZE_Y{})};
+    constexpr auto thread_layout{
+        cute::make_layout(thread_block_shape, cute::GenRowMajor{})};
+
+    auto const thread_tile_src_example{
+        cute::local_partition(g_src_example, thread_layout, 0)};
+    auto const thread_tile_dst_transposed_example{
+        cute::local_partition(g_dst_example, thread_layout, 0)};
+    cute::print(thread_tile_src_example);
+    std::cout << std::endl;
+    cute::print(thread_tile_dst_transposed_example);
+    std::cout << std::endl;
+
+    auto const fragment_src_example{
+        cute::make_tensor_like(thread_tile_src_example)};
+    cute::print(fragment_src_example);
+    std::cout << std::endl;
+
+    dim3 const grid_dim{cute::size<1>(tiled_tensor_src),
+                        cute::size<2>(tiled_tensor_src)};
     dim3 const thread_dim{cute::size(thread_layout)};
 
-    transpose_naive<<<grid_dim, thread_dim, 0, stream>>>(tiled_tensor_src, tiled_tensor_dst_transposed, thread_layout);
+    transpose_naive<<<grid_dim, thread_dim, 0, stream>>>(
+        tiled_tensor_src, tiled_tensor_dst_transposed, thread_layout);
     CHECK_LAST_CUDA_ERROR();
 
     CHECK_CUDA_ERROR(cudaStreamSynchronize(stream));
@@ -158,4 +225,6 @@ int main()
     {
         std::cout << "Failure!" << std::endl;
     }
+
+    // print(h_dst.data(), h_dst_ref.data(), h_dst.size());
 }
