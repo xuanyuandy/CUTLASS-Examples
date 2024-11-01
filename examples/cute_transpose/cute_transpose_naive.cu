@@ -39,20 +39,30 @@ __global__ void transpose_naive(TENSOR_SRC tensor_src,
     using Element = typename TENSOR_SRC::value_type;
 
     auto global_tile_src{tensor_src(cute::make_coord(cute::_, cute::_),
-                                    blockIdx.x,
-                                    blockIdx.y)}; // (TILE_SIZE_X, TILE_SIZE_Y)
+                                    blockIdx.y,
+                                    blockIdx.x)}; // (TILE_SIZE_Y, TILE_SIZE_X)
     auto global_tile_dst_transposed{
-        tensor_dst_transposed(cute::make_coord(cute::_, cute::_), blockIdx.x,
-                              blockIdx.y)}; // (TILE_SIZE_Y, TILE_SIZE_X)
+        tensor_dst_transposed(cute::make_coord(cute::_, cute::_), blockIdx.y,
+                              blockIdx.x)}; // (TILE_SIZE_Y, TILE_SIZE_X)
 
     auto thread_tile_src{cute::local_partition(
         global_tile_src, THREAD_LAYOUT{},
-        threadIdx.x)}; // (THREAD_VALUE_SIZE_X, THREAD_VALUE_SIZE_Y)
+        threadIdx.x)}; // (THREAD_VALUE_SIZE_Y, THREAD_VALUE_SIZE_X)
     auto thread_tile_dst_transposed{cute::local_partition(
         global_tile_dst_transposed, THREAD_LAYOUT{},
-        threadIdx.x)}; // (THREAD_VALUE_SIZE_X, THREAD_VALUE_SIZE_Y)
+        threadIdx.x)}; // (THREAD_VALUE_SIZE_Y, THREAD_VALUE_SIZE_X)
 
     auto register_fragment{cute::make_tensor_like(thread_tile_src)};
+    // auto predicate{cute::make_tensor_like<bool>(thread_tile_src)};
+
+    // for (unsigned int i{0}; i < cute::size<0>(thread_tile_src); ++i)
+    // {
+    //     for (unsigned int j{0}; j < cute::size<1>(thread_tile_src); ++j)
+    //     {
+    //         predicate(i, j) = cute::get<0>(thread_tile_src(i, j)) < 1021 &&
+    //                           cute::get<1>(thread_tile_src(i, j)) < 2049;
+    //     }
+    // }
 
     cute::copy(thread_tile_src, register_fragment);
     cute::copy(register_fragment, thread_tile_dst_transposed);
@@ -114,6 +124,9 @@ int main()
     unsigned int const M{2048}; // Number of columns.
     unsigned int const N{1024}; // Number of rows.
 
+    // unsigned int const M{2049}; // Number of columns.
+    // unsigned int const N{1021}; // Number of rows.
+
     auto const tensor_shape{cute::make_shape(N, M)};
     auto const tensor_shape_transposed{cute::make_shape(M, N)};
 
@@ -154,18 +167,18 @@ int main()
     using TILE_SIZE_X = cute::Int<64>;
     using TILE_SIZE_Y = cute::Int<32>;
 
-    constexpr auto block_shape{cute::make_shape(TILE_SIZE_X{}, TILE_SIZE_Y{})};
+    constexpr auto block_shape{cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
     constexpr auto block_shape_transposed{
-        cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
+        cute::make_shape(TILE_SIZE_X{}, TILE_SIZE_Y{})};
 
     auto const tiled_tensor_src{cute::tiled_divide(
-        tensor_src, block_shape)}; // ((TILE_SIZE_X, TILE_SIZE_Y), M /
-                                   // TILE_SIZE_X, N / TILE_SIZE_Y)
-    cute::print(tiled_tensor_src);
-    std::cout << std::endl;
+        tensor_src, block_shape)}; // ((TILE_SIZE_Y, TILE_SIZE_X), N /
+                                   // TILE_SIZE_Y, M / TILE_SIZE_X)
     auto const tiled_tensor_dst_transposed{cute::tiled_divide(
         tensor_dst_transposed, block_shape)}; // ((TILE_SIZE_Y, TILE_SIZE_X), N
                                               // / TILE_SIZE_Y, M / TILE_SIZE_X)
+    cute::print(tiled_tensor_src);
+    std::cout << std::endl;
     cute::print(tiled_tensor_dst_transposed);
     std::cout << std::endl;
 
@@ -173,21 +186,24 @@ int main()
         tiled_tensor_src(cute::make_coord(cute::_, cute::_), 0, 0)};
     auto const g_dst_example{
         tiled_tensor_dst_transposed(cute::make_coord(cute::_, cute::_), 0, 0)};
+    std::cout << "----------------" << std::endl;
     cute::print(g_src_example);
     std::cout << std::endl;
     cute::print(g_dst_example);
     std::cout << std::endl;
+    // std::cout << "Make identity tensor" << std::endl;
+    // auto const make_identity_tensor(g_src_example);
 
     using THREAD_BLOCK_SIZE_X = cute::Int<32>;
     using THREAD_BLOCK_SIZE_Y = cute::Int<8>;
 
-    static_assert(TILE_SIZE_X::value % THREAD_BLOCK_SIZE_X::value == 0,
+    CUTE_STATIC_ASSERT(TILE_SIZE_X::value % THREAD_BLOCK_SIZE_X::value == 0,
                   "TILE_SIZE_X must be divisible by THREAD_BLOCK_SIZE_X");
-    static_assert(TILE_SIZE_Y::value % THREAD_BLOCK_SIZE_Y::value == 0,
+    CUTE_STATIC_ASSERT(TILE_SIZE_Y::value % THREAD_BLOCK_SIZE_Y::value == 0,
                   "TILE_SIZE_Y must be divisible by THREAD_BLOCK_SIZE_Y");
 
     constexpr auto thread_block_shape{
-        cute::make_shape(THREAD_BLOCK_SIZE_X{}, THREAD_BLOCK_SIZE_Y{})};
+        cute::make_shape(THREAD_BLOCK_SIZE_Y{}, THREAD_BLOCK_SIZE_X{})};
     constexpr auto thread_layout{
         cute::make_layout(thread_block_shape, cute::GenRowMajor{})};
 
@@ -205,8 +221,8 @@ int main()
     cute::print(fragment_src_example);
     std::cout << std::endl;
 
-    dim3 const grid_dim{cute::size<1>(tiled_tensor_src),
-                        cute::size<2>(tiled_tensor_src)};
+    dim3 const grid_dim{cute::size<2>(tiled_tensor_src),
+                        cute::size<1>(tiled_tensor_src)};
     dim3 const thread_dim{cute::size(thread_layout)};
 
     transpose_naive<<<grid_dim, thread_dim, 0, stream>>>(
