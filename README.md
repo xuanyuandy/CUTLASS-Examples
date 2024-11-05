@@ -1,4 +1,4 @@
-# CUTLASS Docker
+# CUTLASS Examples
 
 ## Introduction
 
