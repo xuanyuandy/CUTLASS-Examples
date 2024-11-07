@@ -23,7 +23,7 @@ $ docker build -f docker/cuda.Dockerfile --no-cache --tag cuda:12.4.1 .
 To run the custom Docker container, please run the following command.
 
 ```bash
-$ docker run -it --rm --gpus device=0 -v $(pwd):/mnt cuda:12.4.1
+$ docker run -it --rm --gpus device=0 -v $(pwd):/mnt -w /mnt cuda:12.4.1
 ```
 
 ## CUTLASS CMake Examples

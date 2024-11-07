@@ -10,7 +10,6 @@ find_package(CUDAToolkit REQUIRED)
 
 # Set CUTLASS include directories
 find_path(CUTLASS_INCLUDE_DIR cutlass/cutlass.h HINTS cutlass/include)
-find_path(CUTE_INCLUDE_DIR cute/tensor.hpp HINTS cutlass/include)
 find_path(CUTLASS_UTILS_INCLUDE_DIR cutlass/util/host_tensor.h HINTS cutlass/tools/util/include)
 
 add_subdirectory(examples)
