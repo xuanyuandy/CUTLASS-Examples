@@ -1,6 +1,7 @@
 FROM nvcr.io/nvidia/cuda:12.4.1-devel-ubuntu22.04
 
 ARG CMAKE_VERSION=3.30.5
+ARG GOOGLETEST_VERSION=1.15.2
 ARG NUM_JOBS=8
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -34,6 +35,18 @@ ENV LANGUAGE=en_US.UTF-8
 RUN cd /tmp && \
     wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.sh && \
     bash cmake-${CMAKE_VERSION}-linux-x86_64.sh --prefix=/usr/local --exclude-subdir --skip-license && \
+    rm -rf /tmp/*
+
+# Install GoogleTest
+RUN cd /tmp && \
+    wget https://github.com/google/googletest/archive/refs/tags/v${GOOGLETEST_VERSION}.tar.gz && \
+    tar -xzf v${GOOGLETEST_VERSION}.tar.gz && \
+    cd googletest-${GOOGLETEST_VERSION} && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make -j${NUM_JOBS} && \
+    make install && \
     rm -rf /tmp/*
 
 RUN cd /usr/local/bin && \
