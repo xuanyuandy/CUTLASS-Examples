@@ -8,6 +8,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Find CUDA Toolkit
 find_package(CUDAToolkit REQUIRED)
 
+# Find GoogleTest
+find_package(GTest REQUIRED)
+
+# Enable testing at the root level so that we could run all the tests at once
+enable_testing()
+
 # Set CUTLASS include directories
 find_path(CUTLASS_INCLUDE_DIR cutlass/cutlass.h HINTS cutlass/include)
 find_path(CUTLASS_UTILS_INCLUDE_DIR cutlass/util/host_tensor.h HINTS cutlass/tools/util/include)
