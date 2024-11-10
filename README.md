@@ -45,7 +45,14 @@ To run the FP32 and FP16 GEMM CUDA kernels, please run the following commands in
 $ ./build/examples/gemm_api_v2/CUTLASS-GEMM-API-V2
 $ ./build/examples/gemm_api_v3/CUTLASS-GEMM-API-V3
 $ ./build/examples/cute_tiled_copy/CUTE-TILED-COPY
-$ ./build/examples/cute_transpose_naive/CUTE_TRANSPOSE_NAIVE
+```
+
+### Run Unit Tests
+
+To run the unit tests, please run the following commands inside the Docker container.
+
+```bash
+$ ctest --test-dir build/ --verbose
 ```
 
 ## References
