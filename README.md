@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The CUDA kernel examples using [CUTLASS and CuTe](https://github.com/NVIDIA/cutlass) abstractions.
+The CUDA kernel examples using [CUTLASS](https://github.com/NVIDIA/cutlass) and [CuTe](https://github.com/NVIDIA/cutlass/blob/main/media/docs/cute/00_quickstart.md) abstractions.
 
 ## CUTLASS Docker Container
 
