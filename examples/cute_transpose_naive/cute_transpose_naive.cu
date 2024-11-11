@@ -89,8 +89,8 @@ cudaError_t launch_transpose_naive(T const* input_matrix, T* output_matrix,
         cute::make_tensor(cute::make_gmem_ptr(output_matrix),
                           global_memory_layout_dst_transposed)};
 
-    using TILE_SIZE_X = cute::Int<64>;
-    using TILE_SIZE_Y = cute::Int<32>;
+    using TILE_SIZE_X = cute::Int<64>; // bN
+    using TILE_SIZE_Y = cute::Int<32>; // bM
 
     constexpr auto block_shape{cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
 
@@ -101,13 +101,8 @@ cudaError_t launch_transpose_naive(T const* input_matrix, T* output_matrix,
         tensor_dst_transposed, block_shape)}; // ((TILE_SIZE_Y, TILE_SIZE_X), M
                                               // / TILE_SIZE_Y, N / TILE_SIZE_X)
 
-    auto const g_src_example{
-        tiled_tensor_src(cute::make_coord(cute::_, cute::_), 1, 2)};
-    auto const g_dst_example{
-        tiled_tensor_dst_transposed(cute::make_coord(cute::_, cute::_), 1, 2)};
-
-    using THREAD_BLOCK_SIZE_X = cute::Int<32>;
-    using THREAD_BLOCK_SIZE_Y = cute::Int<8>;
+    using THREAD_BLOCK_SIZE_X = cute::Int<32>; // tN
+    using THREAD_BLOCK_SIZE_Y = cute::Int<8>; // tM
 
     CUTE_STATIC_ASSERT(TILE_SIZE_X::value % THREAD_BLOCK_SIZE_X::value == 0,
                        "TILE_SIZE_X must be divisible by THREAD_BLOCK_SIZE_X");

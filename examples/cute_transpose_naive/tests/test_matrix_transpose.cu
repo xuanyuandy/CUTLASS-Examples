@@ -57,6 +57,9 @@ protected:
         CHECK_CUDA_ERROR(launch_transpose_naive(
             thrust::raw_pointer_cast(m_d_src.data()),
             thrust::raw_pointer_cast(m_d_dst.data()), m_M, m_N, m_stream));
+        
+        // Synchronize the stream.
+        CHECK_CUDA_ERROR(cudaStreamSynchronize(m_stream));
 
         // Copy the data from device to host.
         m_h_dst = m_d_dst;
