@@ -4,6 +4,18 @@
 
 The CUDA kernel examples using [CUTLASS](https://github.com/NVIDIA/cutlass) and [CuTe](https://github.com/NVIDIA/cutlass/blob/main/media/docs/cute/00_quickstart.md) abstractions.
 
+## Usages
+
+To download the CUTLASS-Examples repository, please run the following command.
+
+```bash
+$ git clone --recursive https://github.com/leimao/CUTLASS-Examples
+$ cd CUTLASS-Examples
+# If you are updating the submodules of an existing checkout.
+$ git submodule sync
+$ git submodule update --init --recursive
+```
+
 ## CUTLASS Docker Container
 
 Docker is used to build and run CUTLASS CUDA kernels. The custom Docker container is built based on the [NVIDIA NGC CUDA](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/cuda) 12.4.1 Docker container.
