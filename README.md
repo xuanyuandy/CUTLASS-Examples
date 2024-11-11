@@ -2,11 +2,11 @@
 
 ## Introduction
 
-The Docker and CMake examples for [CUTLASS](https://github.com/NVIDIA/cutlass) library.
+The CUDA kernel examples using [CUTLASS and CuTe](https://github.com/NVIDIA/cutlass) abstractions.
 
 ## CUTLASS Docker Container
 
-Docker is used to build and run the CUDA kernels. The custom Docker container is built based on the [NVIDIA NGC CUDA](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/cuda) 12.4.1 Docker container.
+Docker is used to build and run CUTLASS CUDA kernels. The custom Docker container is built based on the [NVIDIA NGC CUDA](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/cuda) 12.4.1 Docker container.
 
 Please adjust the base Docker container CUDA version if the host computer has a different CUDA version. Otherwise, weird compilation errors and runtime errors may occur.
 
