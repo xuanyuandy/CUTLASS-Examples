@@ -6,8 +6,8 @@
 #include "cute_transpose.hpp"
 
 template <class TENSOR_SRC, class TENSOR_DST, class THREAD_LAYOUT>
-__global__ void transpose_naive_shared_memory_bank_conflicts(TENSOR_SRC tensor_src,
-                                TENSOR_DST tensor_dst_transposed, THREAD_LAYOUT)
+__global__ void transpose_naive_shared_memory_bank_conflicts(
+    TENSOR_SRC tensor_src, TENSOR_DST tensor_dst_transposed, THREAD_LAYOUT)
 {
     using Element = typename TENSOR_SRC::value_type;
 
@@ -64,9 +64,11 @@ __global__ void transpose_naive_shared_memory_bank_conflicts(TENSOR_SRC tensor_s
 }
 
 template <typename T>
-cudaError_t launch_transpose_shared_memory_bank_conflicts(T const* input_matrix, T* output_matrix,
-                                   unsigned int M, unsigned int N,
-                                   cudaStream_t stream)
+cudaError_t launch_transpose_shared_memory_bank_conflicts(T const* input_matrix,
+                                                          T* output_matrix,
+                                                          unsigned int M,
+                                                          unsigned int N,
+                                                          cudaStream_t stream)
 {
     auto const tensor_shape{cute::make_shape(M, N)};
     auto const tensor_shape_transposed{cute::make_shape(N, M)};
@@ -118,27 +120,24 @@ cudaError_t launch_transpose_shared_memory_bank_conflicts(T const* input_matrix,
                         cute::size<1>(tiled_tensor_src)};
     dim3 const thread_dim{cute::size(thread_layout)};
 
-    transpose_naive_shared_memory_bank_conflicts<<<grid_dim, thread_dim, 0, stream>>>(
+    transpose_naive_shared_memory_bank_conflicts<<<grid_dim, thread_dim, 0,
+                                                   stream>>>(
         tiled_tensor_src, tiled_tensor_dst_transposed, thread_layout);
 
     return cudaGetLastError();
 }
 
 // Explicit instantiation.
-template cudaError_t launch_transpose_shared_memory_bank_conflicts<float>(float const* input_matrix,
-                                                   float* output_matrix,
-                                                   unsigned int M,
-                                                   unsigned int N,
-                                                   cudaStream_t stream);
-template cudaError_t launch_transpose_shared_memory_bank_conflicts<double>(double const* input_matrix,
-                                                    double* output_matrix,
-                                                    unsigned int M,
-                                                    unsigned int N,
-                                                    cudaStream_t stream);
-template cudaError_t launch_transpose_shared_memory_bank_conflicts<int>(int const* input_matrix,
-                                                 int* output_matrix,
-                                                 unsigned int M, unsigned int N,
-                                                 cudaStream_t stream);
-template cudaError_t launch_transpose_shared_memory_bank_conflicts<unsigned int>(
+template cudaError_t launch_transpose_shared_memory_bank_conflicts<float>(
+    float const* input_matrix, float* output_matrix, unsigned int M,
+    unsigned int N, cudaStream_t stream);
+template cudaError_t launch_transpose_shared_memory_bank_conflicts<double>(
+    double const* input_matrix, double* output_matrix, unsigned int M,
+    unsigned int N, cudaStream_t stream);
+template cudaError_t launch_transpose_shared_memory_bank_conflicts<int>(
+    int const* input_matrix, int* output_matrix, unsigned int M, unsigned int N,
+    cudaStream_t stream);
+template cudaError_t
+launch_transpose_shared_memory_bank_conflicts<unsigned int>(
     unsigned int const* input_matrix, unsigned int* output_matrix,
     unsigned int M, unsigned int N, cudaStream_t stream);

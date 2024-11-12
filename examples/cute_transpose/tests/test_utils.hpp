@@ -5,8 +5,6 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
-#include "cute_transpose.hpp"
-
 #define GTEST_COUT std::cerr << "[          ] [ INFO ] "
 
 #define CHECK_CUDA_ERROR(val) check((val), #val, __FILE__, __LINE__)
@@ -163,10 +161,11 @@ protected:
         CHECK_CUDA_ERROR(cudaStreamDestroy(m_stream));
     }
 
-    void RunTest()
+    void RunTest(cudaError_t (*launch_transpose)(T const*, T*, unsigned int,
+                                                 unsigned int, cudaStream_t))
     {
         // Launch the kernel.
-        CHECK_CUDA_ERROR(launch_transpose_naive<T>(
+        CHECK_CUDA_ERROR(launch_transpose(
             thrust::raw_pointer_cast(m_d_src.data()),
             thrust::raw_pointer_cast(m_d_dst.data()), m_M, m_N, m_stream));
 
@@ -181,7 +180,8 @@ protected:
             compare(m_h_dst.data(), m_h_dst_ref.data(), m_h_dst.size()));
     }
 
-    void MeasurePerformance()
+    void MeasurePerformance(cudaError_t (*launch_transpose)(
+        T const*, T*, unsigned int, unsigned int, cudaStream_t))
     {
         GTEST_COUT << "M: " << m_M << " N: " << m_N << std::endl;
 
@@ -200,7 +200,7 @@ protected:
         GTEST_COUT << "Peak Bandwitdh: " << peak_bandwidth << " GB/s"
                    << std::endl;
 
-        auto const function{std::bind(launch_transpose_naive<T>,
+        auto const function{std::bind(launch_transpose,
                                       thrust::raw_pointer_cast(m_d_src.data()),
                                       thrust::raw_pointer_cast(m_d_dst.data()),
                                       m_M, m_N, std::placeholders::_1)};
