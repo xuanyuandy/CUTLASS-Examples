@@ -166,7 +166,7 @@ protected:
     void RunTest()
     {
         // Launch the kernel.
-        CHECK_CUDA_ERROR(launch_transpose_naive(
+        CHECK_CUDA_ERROR(launch_transpose_naive<T>(
             thrust::raw_pointer_cast(m_d_src.data()),
             thrust::raw_pointer_cast(m_d_dst.data()), m_M, m_N, m_stream));
 

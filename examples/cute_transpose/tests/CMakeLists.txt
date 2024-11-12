@@ -9,17 +9,17 @@ find_package(CUDAToolkit REQUIRED)
 find_path(CUTE_TRANSPOSE_INCLUDE cute_transpose.hpp HINTS ${CMAKE_SOURCE_DIR}/examples/cute_transpose/)
 
 add_executable(test_matrix_transpose test_matrix_transpose.cu)
-# include the directories for cute_transpose_naive.hpp
+# include the directories for cute_transpose.hpp
 target_include_directories(test_matrix_transpose PRIVATE ${CUTE_TRANSPOSE_INCLUDE})
-target_link_libraries(test_matrix_transpose GTest::gtest GTest::gtest_main ${CUTE_TRANSPOSE_NAIVE})
+target_link_libraries(test_matrix_transpose GTest::gtest GTest::gtest_main ${CUTE_TRANSPOSE})
 set_target_properties(test_matrix_transpose PROPERTIES CUDA_ARCHITECTURES native)
 
 add_test(TestAllMatrixTranspose test_matrix_transpose)
 
 add_executable(profile_matrix_transpose profile_matrix_transpose.cu)
-# include the directories for cute_transpose_naive.hpp
+# include the directories for cute_transpose.hpp
 target_include_directories(profile_matrix_transpose PRIVATE ${CUTE_TRANSPOSE_INCLUDE})
-target_link_libraries(profile_matrix_transpose GTest::gtest GTest::gtest_main ${CUTE_TRANSPOSE_NAIVE})
+target_link_libraries(profile_matrix_transpose GTest::gtest GTest::gtest_main ${CUTE_TRANSPOSE})
 set_target_properties(profile_matrix_transpose PROPERTIES CUDA_ARCHITECTURES native)
 
 add_test(ProfileAllMatrixTranspose profile_matrix_transpose)
