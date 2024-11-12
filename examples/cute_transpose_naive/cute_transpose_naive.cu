@@ -102,7 +102,7 @@ cudaError_t launch_transpose_naive(T const* input_matrix, T* output_matrix,
                                               // / TILE_SIZE_Y, N / TILE_SIZE_X)
 
     using THREAD_BLOCK_SIZE_X = cute::Int<32>; // tN
-    using THREAD_BLOCK_SIZE_Y = cute::Int<8>; // tM
+    using THREAD_BLOCK_SIZE_Y = cute::Int<8>;  // tM
 
     CUTE_STATIC_ASSERT(TILE_SIZE_X::value % THREAD_BLOCK_SIZE_X::value == 0,
                        "TILE_SIZE_X must be divisible by THREAD_BLOCK_SIZE_X");

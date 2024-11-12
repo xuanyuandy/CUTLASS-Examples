@@ -42,7 +42,7 @@ $ docker run -it --rm --gpus device=0 -v $(pwd):/mnt -w /mnt cuda:12.4.1
 
 ### Build Examples
 
-To build the CUDA kernels, please run the following commands inside the Docker container.
+To build the CUDA kernels, please run the following commands.
 
 ```bash
 $ cmake -B build
@@ -51,7 +51,7 @@ $ cmake --build build --config Release --parallel
 
 ### Run Examples
 
-To run the FP32 and FP16 GEMM CUDA kernels, please run the following commands inside the Docker container.
+To run the FP32 and FP16 GEMM CUDA kernels, please run the following commands.
 
 ```bash
 $ ./build/examples/gemm_api_v2/CUTLASS-GEMM-API-V2
@@ -61,11 +61,21 @@ $ ./build/examples/cute_tiled_copy/CUTE-TILED-COPY
 
 ### Run Unit Tests
 
-To run the unit tests, please run the following commands inside the Docker container.
+To run the unit tests, please run the following command.
 
 ```bash
-$ ctest --test-dir build/ --verbose
+$ ctest --test-dir build/ --tests-regex "Test.*" --verbose
 ```
+
+### Run Performance Measurements
+
+To run the performance measurements, please run the following command.
+
+```bash
+$ ctest --test-dir build/ --tests-regex "Profile.*" --verbose
+```
+
+Performance measurements will run selected CUDA kernels for large problems multiple times and therefore might take a long time to complete.
 
 ## References
 
