@@ -4,6 +4,11 @@
 
 #include "cute_transpose.hpp"
 
+static const auto LAUNCH_TRANSPOSE_INT{launch_transpose_naive<int>};
+static const auto LAUNCH_TRANSPOSE_UINT{launch_transpose_naive<unsigned int>};
+static const auto LAUNCH_TRANSPOSE_FLOAT{launch_transpose_naive<float>};
+static const auto LAUNCH_TRANSPOSE_DOUBLE{launch_transpose_naive<double>};
+
 static const auto M_PRIME_VALUES{::testing::Values(2, 17, 83, 163, 257)};
 static const auto N_PRIME_VALUES{::testing::Values(2, 17, 83, 163, 257)};
 
@@ -12,22 +17,22 @@ static const auto N_POWER_OF_TWO_VALUES{::testing::Values(1, 16, 256, 1024)};
 
 TEST_P(TestMatrixTransposeInt, TestMatrixTransposeInt)
 {
-    RunTest(launch_transpose_naive);
+    RunTest(LAUNCH_TRANSPOSE_INT);
 }
 
 TEST_P(TestMatrixTransposeUnsignedInt, TestMatrixTransposeUnsignedInt)
 {
-    RunTest(launch_transpose_naive);
+    RunTest(LAUNCH_TRANSPOSE_UINT);
 }
 
 TEST_P(TestMatrixTransposeFloat, TestMatrixTransposeFloat)
 {
-    RunTest(launch_transpose_naive);
+    RunTest(LAUNCH_TRANSPOSE_FLOAT);
 }
 
 TEST_P(TestMatrixTransposeDouble, TestMatrixTransposeDouble)
 {
-    RunTest(launch_transpose_naive);
+    RunTest(LAUNCH_TRANSPOSE_DOUBLE);
 }
 
 INSTANTIATE_TEST_SUITE_P(TestMatrixTransposePowerOfTwo, TestMatrixTransposeInt,
