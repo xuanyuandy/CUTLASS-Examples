@@ -5,11 +5,17 @@
 #include "cute_transpose.cuh"
 #include "cute_transpose.hpp"
 
-template <class TENSOR_SRC, class TENSOR_DST, class THREAD_LAYOUT>
+template <class TENSOR_SRC, class TENSOR_DST, class SHARED_MEMORY_LAYOUT_SRC, class SHARED_MEMORY_LAYOUT_DST, class THREAD_LAYOUT>
 __global__ void transpose_naive_shared_memory_bank_conflicts(
-    TENSOR_SRC tensor_src, TENSOR_DST tensor_dst_transposed, THREAD_LAYOUT)
+    TENSOR_SRC tensor_src, TENSOR_DST tensor_dst_transposed, SHARED_MEMORY_LAYOUT_SRC, SHARED_MEMORY_LAYOUT_DST, THREAD_LAYOUT)
 {
     using Element = typename TENSOR_SRC::value_type;
+    CUTE_STATIC_ASSERT(cute::size(SHARED_MEMORY_LAYOUT_SRC{}) == cute::size(SHARED_MEMORY_LAYOUT_DST{}),
+                       "SHARED_MEMORY_LAYOUT_SRC and SHARED_MEMORY_LAYOUT_DST must have the same size.");
+    __shared__ Element shared_memory[cute::size(SHARED_MEMORY_LAYOUT_SRC{})];
+
+    auto tensor_cache_src{cute::make_tensor(cute::make_smem_ptr(shared_memory), SHARED_MEMORY_LAYOUT_SRC{})};
+    auto tensor_cache_dst_transposed{cute::make_tensor(cute::make_smem_ptr(shared_memory), SHARED_MEMORY_LAYOUT_DST{})};
 
     auto global_tile_src{tensor_src(cute::make_coord(cute::_, cute::_),
                                     blockIdx.y,
@@ -18,11 +24,18 @@ __global__ void transpose_naive_shared_memory_bank_conflicts(
         tensor_dst_transposed(cute::make_coord(cute::_, cute::_), blockIdx.y,
                               blockIdx.x)}; // (TILE_SIZE_Y, TILE_SIZE_X)
 
-    auto thread_tile_src{cute::local_partition(
+    auto thread_global_tile_src{cute::local_partition(
         global_tile_src, THREAD_LAYOUT{},
         threadIdx.x)}; // (THREAD_VALUE_SIZE_Y, THREAD_VALUE_SIZE_X)
-    auto thread_tile_dst_transposed{cute::local_partition(
+    auto thread_global_tile_dst_transposed{cute::local_partition(
         global_tile_dst_transposed, THREAD_LAYOUT{},
+        threadIdx.x)}; // (THREAD_VALUE_SIZE_Y, THREAD_VALUE_SIZE_X)
+
+    auto thread_shared_tile_src{cute::local_partition(
+        tensor_cache_src, THREAD_LAYOUT{},
+        threadIdx.x)}; // (THREAD_VALUE_SIZE_Y, THREAD_VALUE_SIZE_X)
+    auto thread_shared_tile_dst_transposed{cute::local_partition(
+        tensor_cache_dst_transposed, THREAD_LAYOUT{},
         threadIdx.x)}; // (THREAD_VALUE_SIZE_Y, THREAD_VALUE_SIZE_X)
 
     // A 2D array of tuples that maps (x, y) to (x, y).
@@ -30,7 +43,7 @@ __global__ void transpose_naive_shared_memory_bank_conflicts(
         cute::size<0>(global_tile_src), cute::size<1>(global_tile_src)))};
     auto const thread_identity_tensor{
         cute::local_partition(identity_tensor, THREAD_LAYOUT{}, threadIdx.x)};
-    auto fragment{cute::make_tensor_like(thread_tile_src)};
+    auto fragment{cute::make_tensor_like(thread_global_tile_src)};
     auto predicator{cute::make_tensor<bool>(
         cute::make_shape(cute::size<0>(fragment), cute::size<1>(fragment)))};
 
@@ -56,11 +69,11 @@ __global__ void transpose_naive_shared_memory_bank_conflicts(
         }
     }
 
-    cute::copy_if(predicator, thread_tile_src, fragment);
-    cute::copy_if(predicator, fragment, thread_tile_dst_transposed);
-
-    // Alternatively, we could just do the following instead.
-    // cute::copy_if(predicator, thread_tile_src, thread_tile_dst_transposed);
+    cute::copy_if(predicator, thread_global_tile_src, thread_shared_tile_src);
+    cute::cp_async_fence();
+    cute::cp_async_wait<0>();
+    __syncthreads();
+    cute::copy_if(predicator, thread_shared_tile_src, thread_global_tile_dst_transposed);
 }
 
 template <typename T>
@@ -96,6 +109,11 @@ cudaError_t launch_transpose_shared_memory_bank_conflicts(T const* input_matrix,
 
     constexpr auto block_shape{cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
 
+    auto const shared_memory_layout_src{cute::make_layout(
+        block_shape, cute::GenRowMajor{})}; // (bM, bN) : (bN, 1)
+    auto const shared_memory_layout_dst_transposed{cute::make_layout(
+        block_shape, cute::GenColMajor{})}; // (bM, bN) : (1, bM)
+
     auto const tiled_tensor_src{cute::tiled_divide(
         tensor_src, block_shape)}; // ((TILE_SIZE_Y, TILE_SIZE_X), M /
                                    // TILE_SIZE_Y, N / TILE_SIZE_X)
@@ -122,7 +140,7 @@ cudaError_t launch_transpose_shared_memory_bank_conflicts(T const* input_matrix,
 
     transpose_naive_shared_memory_bank_conflicts<<<grid_dim, thread_dim, 0,
                                                    stream>>>(
-        tiled_tensor_src, tiled_tensor_dst_transposed, thread_layout);
+        tiled_tensor_src, tiled_tensor_dst_transposed, shared_memory_layout_src, shared_memory_layout_dst_transposed, thread_layout);
 
     return cudaGetLastError();
 }
