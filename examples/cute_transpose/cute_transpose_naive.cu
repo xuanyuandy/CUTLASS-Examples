@@ -2,8 +2,8 @@
 
 #include <cute/tensor.hpp>
 
-#include "cute_transpose_naive.cuh"
-#include "cute_transpose_naive.hpp"
+#include "cute_transpose.cuh"
+#include "cute_transpose.hpp"
 
 template <class TENSOR_SRC, class TENSOR_DST, class THREAD_LAYOUT>
 __global__ void transpose_naive(TENSOR_SRC tensor_src,

@@ -6,7 +6,7 @@ find_package(GTest REQUIRED)
 # Find CUDA Toolkit
 find_package(CUDAToolkit REQUIRED)
 
-find_path(CUTE_TRANSPOSE_INCLUDE cute_transpose_naive.hpp HINTS ${CMAKE_SOURCE_DIR}/examples/cute_transpose_naive)
+find_path(CUTE_TRANSPOSE_INCLUDE cute_transpose.hpp HINTS ${CMAKE_SOURCE_DIR}/examples/cute_transpose/)
 
 add_executable(test_matrix_transpose test_matrix_transpose.cu)
 # include the directories for cute_transpose_naive.hpp

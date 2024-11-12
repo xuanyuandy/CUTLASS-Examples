@@ -5,7 +5,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
-#include "cute_transpose_naive.hpp"
+#include "cute_transpose.hpp"
 
 #define GTEST_COUT std::cerr << "[          ] [ INFO ] "
 
