@@ -55,22 +55,6 @@ void initialize(T* data, unsigned int size)
     }
 }
 
-// Compare a data array with a reference array.
-template <class T>
-bool compare(T const* data, T const* ref, unsigned int size)
-{
-    for (unsigned int i{0}; i < size; ++i)
-    {
-        if (data[i] != ref[i])
-        {
-            std::cout << i << " " << data[i] << " " << ref[i] << std::endl;
-            return false;
-        }
-    }
-
-    return true;
-}
-
 // Print a data array and a reference array.
 template <class T>
 void print(T const* data, T const* ref, unsigned int size)
@@ -80,6 +64,29 @@ void print(T const* data, T const* ref, unsigned int size)
         std::cout << i << " " << data[i] << " " << ref[i] << std::endl;
     }
 }
+
+// Compare a data array with a reference array.
+template <class T>
+bool compare(T const* data, T const* ref, unsigned int size)
+{
+    bool status{true};
+    for (unsigned int i{0}; i < size; ++i)
+    {
+        if (data[i] != ref[i])
+        {
+            // std::cout << i << " " << data[i] << " " << ref[i] << std::endl;
+            status = false;
+        }
+    }
+
+    if (!status)
+    {
+        print<T>(data, ref, size);
+    }
+
+    return status;
+}
+
 
 template <class T>
 float measure_performance(std::function<T(cudaStream_t)> const& bound_function,
