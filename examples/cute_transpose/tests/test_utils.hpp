@@ -5,8 +5,6 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
-#include "cute_transpose_naive.hpp"
-
 #define GTEST_COUT std::cerr << "[          ] [ INFO ] "
 
 #define CHECK_CUDA_ERROR(val) check((val), #val, __FILE__, __LINE__)
@@ -57,22 +55,6 @@ void initialize(T* data, unsigned int size)
     }
 }
 
-// Compare a data array with a reference array.
-template <class T>
-bool compare(T const* data, T const* ref, unsigned int size)
-{
-    for (unsigned int i{0}; i < size; ++i)
-    {
-        if (data[i] != ref[i])
-        {
-            std::cout << i << " " << data[i] << " " << ref[i] << std::endl;
-            return false;
-        }
-    }
-
-    return true;
-}
-
 // Print a data array and a reference array.
 template <class T>
 void print(T const* data, T const* ref, unsigned int size)
@@ -81,6 +63,27 @@ void print(T const* data, T const* ref, unsigned int size)
     {
         std::cout << i << " " << data[i] << " " << ref[i] << std::endl;
     }
+}
+
+// Compare a data array with a reference array.
+template <class T>
+bool compare(T const* data, T const* ref, unsigned int size)
+{
+    bool status{true};
+    for (unsigned int i{0}; i < size; ++i)
+    {
+        if (data[i] != ref[i])
+        {
+            status = false;
+        }
+    }
+
+    // if (!status)
+    // {
+    //     print<T>(data, ref, size);
+    // }
+
+    return status;
 }
 
 template <class T>
@@ -163,10 +166,11 @@ protected:
         CHECK_CUDA_ERROR(cudaStreamDestroy(m_stream));
     }
 
-    void RunTest()
+    void RunTest(cudaError_t (*launch_transpose)(T const*, T*, unsigned int,
+                                                 unsigned int, cudaStream_t))
     {
         // Launch the kernel.
-        CHECK_CUDA_ERROR(launch_transpose_naive(
+        CHECK_CUDA_ERROR(launch_transpose(
             thrust::raw_pointer_cast(m_d_src.data()),
             thrust::raw_pointer_cast(m_d_dst.data()), m_M, m_N, m_stream));
 
@@ -181,7 +185,8 @@ protected:
             compare(m_h_dst.data(), m_h_dst_ref.data(), m_h_dst.size()));
     }
 
-    void MeasurePerformance()
+    void MeasurePerformance(cudaError_t (*launch_transpose)(
+        T const*, T*, unsigned int, unsigned int, cudaStream_t))
     {
         GTEST_COUT << "M: " << m_M << " N: " << m_N << std::endl;
 
@@ -200,7 +205,7 @@ protected:
         GTEST_COUT << "Peak Bandwitdh: " << peak_bandwidth << " GB/s"
                    << std::endl;
 
-        auto const function{std::bind(launch_transpose_naive<T>,
+        auto const function{std::bind(launch_transpose,
                                       thrust::raw_pointer_cast(m_d_src.data()),
                                       thrust::raw_pointer_cast(m_d_dst.data()),
                                       m_M, m_N, std::placeholders::_1)};

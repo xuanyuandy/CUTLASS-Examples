@@ -2,8 +2,8 @@
 
 #include <cute/tensor.hpp>
 
-#include "cute_transpose_naive.cuh"
-#include "cute_transpose_naive.hpp"
+#include "cute_transpose.cuh"
+#include "cute_transpose.hpp"
 
 template <class TENSOR_SRC, class TENSOR_DST, class THREAD_LAYOUT>
 __global__ void transpose_naive(TENSOR_SRC tensor_src,
@@ -18,10 +18,10 @@ __global__ void transpose_naive(TENSOR_SRC tensor_src,
         tensor_dst_transposed(cute::make_coord(cute::_, cute::_), blockIdx.y,
                               blockIdx.x)}; // (TILE_SIZE_Y, TILE_SIZE_X)
 
-    auto thread_tile_src{cute::local_partition(
+    auto thread_global_tile_src{cute::local_partition(
         global_tile_src, THREAD_LAYOUT{},
         threadIdx.x)}; // (THREAD_VALUE_SIZE_Y, THREAD_VALUE_SIZE_X)
-    auto thread_tile_dst_transposed{cute::local_partition(
+    auto thread_global_tile_dst_transposed{cute::local_partition(
         global_tile_dst_transposed, THREAD_LAYOUT{},
         threadIdx.x)}; // (THREAD_VALUE_SIZE_Y, THREAD_VALUE_SIZE_X)
 
@@ -30,7 +30,7 @@ __global__ void transpose_naive(TENSOR_SRC tensor_src,
         cute::size<0>(global_tile_src), cute::size<1>(global_tile_src)))};
     auto const thread_identity_tensor{
         cute::local_partition(identity_tensor, THREAD_LAYOUT{}, threadIdx.x)};
-    auto fragment{cute::make_tensor_like(thread_tile_src)};
+    auto fragment{cute::make_tensor_like(thread_global_tile_src)};
     auto predicator{cute::make_tensor<bool>(
         cute::make_shape(cute::size<0>(fragment), cute::size<1>(fragment)))};
 
@@ -56,11 +56,12 @@ __global__ void transpose_naive(TENSOR_SRC tensor_src,
         }
     }
 
-    cute::copy_if(predicator, thread_tile_src, fragment);
-    cute::copy_if(predicator, fragment, thread_tile_dst_transposed);
+    cute::copy_if(predicator, thread_global_tile_src, fragment);
+    cute::copy_if(predicator, fragment, thread_global_tile_dst_transposed);
 
     // Alternatively, we could just do the following instead.
-    // cute::copy_if(predicator, thread_tile_src, thread_tile_dst_transposed);
+    // cute::copy_if(predicator, thread_global_tile_src,
+    // thread_global_tile_dst_transposed);
 }
 
 template <typename T>
