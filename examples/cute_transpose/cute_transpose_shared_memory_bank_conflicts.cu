@@ -164,8 +164,8 @@ cudaError_t launch_transpose_shared_memory_bank_conflicts(T const* input_matrix,
         cute::make_tensor(cute::make_gmem_ptr(output_matrix),
                           global_memory_layout_dst_transposed)};
 
-    using TILE_SIZE_X = cute::Int<4>; // bN
-    using TILE_SIZE_Y = cute::Int<2>; // bM
+    using TILE_SIZE_X = cute::Int<64>; // bN
+    using TILE_SIZE_Y = cute::Int<32>; // bM
 
     constexpr auto block_shape{cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
     constexpr auto block_shape_transposed{cute::make_shape(TILE_SIZE_X{}, TILE_SIZE_Y{})};
@@ -180,21 +180,21 @@ cudaError_t launch_transpose_shared_memory_bank_conflicts(T const* input_matrix,
     auto const tiled_tensor_src{cute::tiled_divide(
         tensor_src, block_shape)}; // ((TILE_SIZE_Y, TILE_SIZE_X), M /
                                    // TILE_SIZE_Y, N / TILE_SIZE_X)
-    cute::print(tiled_tensor_src);
-    std::cout << std::endl;
+    // cute::print(tiled_tensor_src);
+    // std::cout << std::endl;
     auto const tiled_tensor_dst{cute::tiled_divide(
         tensor_dst, block_shape_transposed)}; // ((TILE_SIZE_X, TILE_SIZE_Y), N
                                               // / TILE_SIZE_X, M / TILE_SIZE_Y)
-    cute::print(tiled_tensor_dst);
-    std::cout << std::endl;
+    // cute::print(tiled_tensor_dst);
+    // std::cout << std::endl;
     auto const tiled_tensor_dst_transposed{cute::tiled_divide(
         tensor_dst_transposed, block_shape)}; // ((TILE_SIZE_Y, TILE_SIZE_X), M
                                               // / TILE_SIZE_Y, N / TILE_SIZE_X)
-    cute::print(tiled_tensor_dst_transposed);
-    std::cout << std::endl;
+    // cute::print(tiled_tensor_dst_transposed);
+    // std::cout << std::endl;
 
-    using THREAD_BLOCK_SIZE_X = cute::Int<2>; // tN
-    using THREAD_BLOCK_SIZE_Y = cute::Int<1>;  // tM
+    using THREAD_BLOCK_SIZE_X = cute::Int<32>; // tN
+    using THREAD_BLOCK_SIZE_Y = cute::Int<8>;  // tM
 
     CUTE_STATIC_ASSERT(TILE_SIZE_X::value % THREAD_BLOCK_SIZE_X::value == 0,
                        "TILE_SIZE_X must be divisible by THREAD_BLOCK_SIZE_X");
