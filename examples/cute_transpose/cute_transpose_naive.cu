@@ -60,7 +60,8 @@ __global__ void transpose_naive(TENSOR_SRC tensor_src,
     cute::copy_if(predicator, fragment, thread_global_tile_dst_transposed);
 
     // Alternatively, we could just do the following instead.
-    // cute::copy_if(predicator, thread_global_tile_src, thread_global_tile_dst_transposed);
+    // cute::copy_if(predicator, thread_global_tile_src,
+    // thread_global_tile_dst_transposed);
 }
 
 template <typename T>

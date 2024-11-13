@@ -87,7 +87,6 @@ bool compare(T const* data, T const* ref, unsigned int size)
     return status;
 }
 
-
 template <class T>
 float measure_performance(std::function<T(cudaStream_t)> const& bound_function,
                           cudaStream_t stream, unsigned int num_repeats = 100,

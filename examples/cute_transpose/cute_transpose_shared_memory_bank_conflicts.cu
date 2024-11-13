@@ -5,83 +5,82 @@
 #include "cute_transpose.cuh"
 #include "cute_transpose.hpp"
 
-template <class TENSOR_SRC, class TENSOR_DST, class SHARED_MEMORY_LAYOUT_SRC, class SHARED_MEMORY_LAYOUT_DST, class THREAD_LAYOUT>
+template <class TENSOR_SRC, class TENSOR_DST, class SHARED_MEMORY_LAYOUT_SRC,
+          class SHARED_MEMORY_LAYOUT_DST, class THREAD_LAYOUT_SRC,
+          class THREAD_LAYOUT_DST>
 __global__ void transpose_naive_shared_memory_bank_conflicts(
-    TENSOR_SRC tensor_src, TENSOR_DST tensor_dst, SHARED_MEMORY_LAYOUT_SRC, SHARED_MEMORY_LAYOUT_DST, THREAD_LAYOUT)
+    TENSOR_SRC tensor_src, TENSOR_DST tensor_dst, SHARED_MEMORY_LAYOUT_SRC,
+    SHARED_MEMORY_LAYOUT_DST, THREAD_LAYOUT_SRC, THREAD_LAYOUT_DST)
 {
     using Element = typename TENSOR_SRC::value_type;
-    CUTE_STATIC_ASSERT(cute::size(SHARED_MEMORY_LAYOUT_SRC{}) == cute::size(SHARED_MEMORY_LAYOUT_DST{}),
-                       "SHARED_MEMORY_LAYOUT_SRC and SHARED_MEMORY_LAYOUT_DST must have the same size.");
+    CUTE_STATIC_ASSERT(cute::size(SHARED_MEMORY_LAYOUT_SRC{}) ==
+                           cute::size(SHARED_MEMORY_LAYOUT_DST{}),
+                       "SHARED_MEMORY_LAYOUT_SRC and SHARED_MEMORY_LAYOUT_DST "
+                       "must have the same size.");
     __shared__ Element shared_memory[cute::size(SHARED_MEMORY_LAYOUT_SRC{})];
 
-    auto tensor_cache_src{cute::make_tensor(cute::make_smem_ptr(shared_memory), SHARED_MEMORY_LAYOUT_SRC{})};
-    auto tensor_cache_dst{cute::make_tensor(cute::make_smem_ptr(shared_memory), SHARED_MEMORY_LAYOUT_DST{})};
+    auto tensor_cache_src{cute::make_tensor(cute::make_smem_ptr(shared_memory),
+                                            SHARED_MEMORY_LAYOUT_SRC{})};
+    auto tensor_cache_dst{cute::make_tensor(cute::make_smem_ptr(shared_memory),
+                                            SHARED_MEMORY_LAYOUT_DST{})};
 
     auto global_tile_src{tensor_src(cute::make_coord(cute::_, cute::_),
                                     blockIdx.y,
                                     blockIdx.x)}; // (TILE_SIZE_Y, TILE_SIZE_X)
-    auto global_tile_dst{
-        tensor_dst(cute::make_coord(cute::_, cute::_), blockIdx.x,
-                              blockIdx.y)}; // (TILE_SIZE_Y, TILE_SIZE_X)
+    auto global_tile_dst{tensor_dst(cute::make_coord(cute::_, cute::_),
+                                    blockIdx.x,
+                                    blockIdx.y)}; // (TILE_SIZE_X, TILE_SIZE_Y)
 
     auto thread_global_tile_src{cute::local_partition(
-        global_tile_src, THREAD_LAYOUT{},
+        global_tile_src, THREAD_LAYOUT_SRC{},
         threadIdx.x)}; // (THREAD_VALUE_SIZE_Y, THREAD_VALUE_SIZE_X)
     auto thread_global_tile_dst{cute::local_partition(
-        global_tile_dst, THREAD_LAYOUT{},
-        threadIdx.x)}; // (THREAD_VALUE_SIZE_Y, THREAD_VALUE_SIZE_X)
+        global_tile_dst, THREAD_LAYOUT_DST{},
+        threadIdx.x)}; // (THREAD_VALUE_SIZE_X, THREAD_VALUE_SIZE_Y)
 
     auto thread_shared_tile_src{cute::local_partition(
-        tensor_cache_src, THREAD_LAYOUT{},
+        tensor_cache_src, THREAD_LAYOUT_SRC{},
         threadIdx.x)}; // (THREAD_VALUE_SIZE_Y, THREAD_VALUE_SIZE_X)
     auto thread_shared_tile_dst{cute::local_partition(
-        tensor_cache_dst, THREAD_LAYOUT{},
-        threadIdx.x)}; // (THREAD_VALUE_SIZE_Y, THREAD_VALUE_SIZE_X)
+        tensor_cache_dst, THREAD_LAYOUT_DST{},
+        threadIdx.x)}; // (THREAD_VALUE_SIZE_X, THREAD_VALUE_SIZE_Y)
 
     // A 2D array of tuples that maps (x, y) to (x, y).
-    auto const identity_tensor{cute::make_identity_tensor(cute::make_shape(
+    auto const identity_tensor_src{cute::make_identity_tensor(cute::make_shape(
         cute::size<0>(global_tile_src), cute::size<1>(global_tile_src)))};
-    auto const thread_identity_tensor{
-        cute::local_partition(identity_tensor, THREAD_LAYOUT{}, threadIdx.x)};
-    auto fragment{cute::make_tensor_like(thread_global_tile_src)};
-    auto predicator{cute::make_tensor<bool>(
-        cute::make_shape(cute::size<0>(fragment), cute::size<1>(fragment)))};
-    // auto predicator_transposed{cute::make_tensor<bool>(
-    //     cute::make_shape(cute::size<1>(fragment), cute::size<0>(fragment)))};
-    // printf("predicator shape (%d, %d), predicator_transposed shape (%d, %d)\n", int(cute::size<0>(predicator)), int(cute::size<1>(predicator)), int(cute::size<0>(predicator_transposed)), int(cute::size<1>(predicator_transposed)));
+    auto const thread_identity_tensor_src{cute::local_partition(
+        identity_tensor_src, THREAD_LAYOUT_SRC{}, threadIdx.x)};
+    auto predicator_src{cute::make_tensor<bool>(
+        cute::make_shape(cute::size<0>(thread_global_tile_src),
+                         cute::size<1>(thread_global_tile_src)))};
 
     auto const identity_tensor_dst{cute::make_identity_tensor(cute::make_shape(
         cute::size<0>(global_tile_dst), cute::size<1>(global_tile_dst)))};
-    auto const thread_identity_tensor_dst{
-        cute::local_partition(identity_tensor_dst, THREAD_LAYOUT{}, threadIdx.x)};
-    auto fragment_dst{cute::make_tensor_like(thread_global_tile_dst)};
+    auto const thread_identity_tensor_dst{cute::local_partition(
+        identity_tensor_dst, THREAD_LAYOUT_DST{}, threadIdx.x)};
     auto predicator_dst{cute::make_tensor<bool>(
-        cute::make_shape(cute::size<0>(fragment_dst), cute::size<1>(fragment_dst)))};
+        cute::make_shape(cute::size<0>(thread_global_tile_dst),
+                         cute::size<1>(thread_global_tile_dst)))};
 
-    int const num_max_columns{cute::stride<0>(global_tile_src)};
-    int const num_max_rows{cute::stride<0>(global_tile_dst)};
-    constexpr int global_tile_columns{cute::size<1>(global_tile_src)};
-    constexpr int global_tile_rows{cute::size<0>(global_tile_src)};
-    // printf("num_max_columns: %d, num_max_rows: %d, global_tile_columns: %d, global_tile_rows: %d\n", num_max_columns, num_max_rows, global_tile_columns, global_tile_rows);
+    auto const num_max_columns{cute::stride<0>(global_tile_src)};
+    auto const num_max_rows{cute::stride<0>(global_tile_dst)};
+    constexpr auto global_tile_columns{cute::size<1>(global_tile_src)};
+    constexpr auto global_tile_rows{cute::size<0>(global_tile_src)};
 
     CUTE_UNROLL
-    for (unsigned int i{0}; i < cute::size<0>(predicator); ++i)
+    for (unsigned int i{0}; i < cute::size<0>(predicator_src); ++i)
     {
         CUTE_UNROLL
-        for (unsigned int j{0}; j < cute::size<1>(predicator); ++j)
+        for (unsigned int j{0}; j < cute::size<1>(predicator_src); ++j)
         {
-            auto const thread_identity{thread_identity_tensor(i, j)};
+            auto const thread_identity{thread_identity_tensor_src(i, j)};
             bool const is_row_in_bound{cute::get<0>(thread_identity) +
                                            blockIdx.y * global_tile_rows <
                                        num_max_rows};
             bool const is_column_in_bound{cute::get<1>(thread_identity) +
                                               blockIdx.x * global_tile_columns <
                                           num_max_columns};
-            // predicator(i, j) = is_row_in_bound && is_column_in_bound;
-            // predicator_transposed(j, i) = is_row_in_bound && is_column_in_bound;
-            // printf("blockIdx.y: %d, blockIdx.x: %d, threadIdx.x: %d, threadIdx.y: %d, i: %d, j: %d, thread_identity: (%d, %d), is_row_in_bound: %d, is_column_in_bound: %d\n", blockIdx.y, blockIdx.x, threadIdx.x, threadIdx.y, i, j, cute::get<0>(thread_identity), cute::get<1>(thread_identity), is_row_in_bound, is_column_in_bound);
-            predicator(i, j) = is_row_in_bound && is_column_in_bound;
-            // predicator_transposed(j, i) = is_row_in_bound && is_column_in_bound;
+            predicator_src(i, j) = is_row_in_bound && is_column_in_bound;
         }
     }
 
@@ -98,42 +97,21 @@ __global__ void transpose_naive_shared_memory_bank_conflicts(
             bool const is_column_in_bound{cute::get<1>(thread_identity) +
                                               blockIdx.y * global_tile_rows <
                                           num_max_rows};
-            // predicator(i, j) = is_row_in_bound && is_column_in_bound;
-            // predicator_transposed(j, i) = is_row_in_bound && is_column_in_bound;
-            // printf("blockIdx.y: %d, blockIdx.x: %d, threadIdx.x: %d, threadIdx.y: %d, i: %d, j: %d, thread_identity: (%d, %d), is_row_in_bound: %d, is_column_in_bound: %d\n", blockIdx.y, blockIdx.x, threadIdx.x, threadIdx.y, i, j, cute::get<0>(thread_identity), cute::get<1>(thread_identity), is_row_in_bound, is_column_in_bound);
             predicator_dst(i, j) = is_row_in_bound && is_column_in_bound;
-            // predicator_transposed(j, i) = is_row_in_bound && is_column_in_bound;
         }
     }
 
-
-    cute::copy_if(predicator, thread_global_tile_src, thread_shared_tile_src);
+    // Copy and transpose the input matrix tile to the shared memory.
+    // The memory read from the global memory is coalesced.
+    cute::copy_if(predicator_src, thread_global_tile_src,
+                  thread_shared_tile_src);
     cute::cp_async_fence();
     cute::cp_async_wait<0>();
     __syncthreads();
-    // // Print values from the shared memory.
-    // if (threadIdx.x == 0 && threadIdx.y == 0)
-    // {
-    //     for (unsigned int i{0}; i < 8; ++i)
-    //     {
-    //         printf("shared memory[%d]: %f\n", i, shared_memory[i]);
-    //     }
-    // }
-    // cute::copy_if(predicator_transposed, thread_shared_tile_dst, thread_global_tile_dst);
-    for (unsigned int i{0}; i < cute::size(thread_shared_tile_dst); ++i)
-    {
-        // printf("blockIdx.y: %d, blockIdx.x: %d, threadIdx.x: %d, threadIdx.y: %d, i: %d, thread_shared_tile_dst: %f, predicate_transposed: %d\n", blockIdx.y, blockIdx.x, threadIdx.x, threadIdx.y, i, thread_shared_tile_dst(i), predicator_transposed(i) ? 1 : 0);
-        if (predicator_dst(i))
-        {
-            thread_global_tile_dst(i) = thread_shared_tile_dst(i);
-        }
-    }
-
-    // cute::copy(thread_global_tile_src, thread_shared_tile_src);
-    // cute::cp_async_fence();
-    // cute::cp_async_wait<0>();
-    // __syncthreads();
-    // cute::copy(thread_shared_tile_dst, thread_global_tile_dst);
+    // Copy the transposed input matrix tile from the shared memory to the
+    // output matrix tile. The memory write to the global memory is coalesced.
+    cute::copy_if(predicator_dst, thread_shared_tile_dst,
+                  thread_global_tile_dst);
 }
 
 template <typename T>
@@ -168,7 +146,8 @@ cudaError_t launch_transpose_shared_memory_bank_conflicts(T const* input_matrix,
     using TILE_SIZE_Y = cute::Int<32>; // bM
 
     constexpr auto block_shape{cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
-    constexpr auto block_shape_transposed{cute::make_shape(TILE_SIZE_X{}, TILE_SIZE_Y{})};
+    constexpr auto block_shape_transposed{
+        cute::make_shape(TILE_SIZE_X{}, TILE_SIZE_Y{})};
 
     auto const shared_memory_layout_src{cute::make_layout(
         block_shape, cute::GenRowMajor{})}; // (bM, bN) : (bN, 1)
@@ -180,18 +159,12 @@ cudaError_t launch_transpose_shared_memory_bank_conflicts(T const* input_matrix,
     auto const tiled_tensor_src{cute::tiled_divide(
         tensor_src, block_shape)}; // ((TILE_SIZE_Y, TILE_SIZE_X), M /
                                    // TILE_SIZE_Y, N / TILE_SIZE_X)
-    // cute::print(tiled_tensor_src);
-    // std::cout << std::endl;
     auto const tiled_tensor_dst{cute::tiled_divide(
         tensor_dst, block_shape_transposed)}; // ((TILE_SIZE_X, TILE_SIZE_Y), N
                                               // / TILE_SIZE_X, M / TILE_SIZE_Y)
-    // cute::print(tiled_tensor_dst);
-    // std::cout << std::endl;
     auto const tiled_tensor_dst_transposed{cute::tiled_divide(
         tensor_dst_transposed, block_shape)}; // ((TILE_SIZE_Y, TILE_SIZE_X), M
                                               // / TILE_SIZE_Y, N / TILE_SIZE_X)
-    // cute::print(tiled_tensor_dst_transposed);
-    // std::cout << std::endl;
 
     using THREAD_BLOCK_SIZE_X = cute::Int<32>; // tN
     using THREAD_BLOCK_SIZE_Y = cute::Int<8>;  // tM
@@ -203,16 +176,39 @@ cudaError_t launch_transpose_shared_memory_bank_conflicts(T const* input_matrix,
 
     constexpr auto thread_block_shape{
         cute::make_shape(THREAD_BLOCK_SIZE_Y{}, THREAD_BLOCK_SIZE_X{})};
-    constexpr auto thread_layout{
+    // thread_layout_src is used for the memory copy from global src to shared
+    // memory.
+    constexpr auto thread_layout_src{
         cute::make_layout(thread_block_shape, cute::GenRowMajor{})};
+    // thread_layout_dst is used for the memory copy from shared memory to
+    // global dst. It does not have to be the same as thread_layout_src.
+    constexpr auto thread_layout_dst{
+        cute::make_layout(thread_block_shape, cute::GenRowMajor{})};
+
+    CUTE_STATIC_ASSERT(
+        cute::size(thread_layout_src) == cute::size(thread_layout_dst),
+        "THREAD_LAYOUT_SRC and THREAD_LAYOUT_DST must have the same size.");
+    CUTE_STATIC_ASSERT(TILE_SIZE_Y::value % cute::size<0>(thread_layout_src) ==
+                           0,
+                       "TILE_SIZE_Y must be divisible by THREAD_BLOCK_SIZE_Y");
+    CUTE_STATIC_ASSERT(TILE_SIZE_X::value % cute::size<1>(thread_layout_src) ==
+                           0,
+                       "TILE_SIZE_X must be divisible by THREAD_BLOCK_SIZE_X");
+    CUTE_STATIC_ASSERT(TILE_SIZE_X::value % cute::size<0>(thread_layout_dst) ==
+                           0,
+                       "TILE_SIZE_X must be divisible by THREAD_BLOCK_SIZE_Y");
+    CUTE_STATIC_ASSERT(TILE_SIZE_Y::value % cute::size<1>(thread_layout_dst) ==
+                           0,
+                       "TILE_SIZE_Y must be divisible by THREAD_BLOCK_SIZE_X");
 
     dim3 const grid_dim{cute::size<2>(tiled_tensor_src),
                         cute::size<1>(tiled_tensor_src)};
-    dim3 const thread_dim{cute::size(thread_layout)};
+    dim3 const thread_dim{cute::size(thread_layout_src)};
 
     transpose_naive_shared_memory_bank_conflicts<<<grid_dim, thread_dim, 0,
                                                    stream>>>(
-        tiled_tensor_src, tiled_tensor_dst, shared_memory_layout_dst_transposed, shared_memory_layout_dst, thread_layout);
+        tiled_tensor_src, tiled_tensor_dst, shared_memory_layout_dst_transposed,
+        shared_memory_layout_dst, thread_layout_src, thread_layout_dst);
 
     return cudaGetLastError();
 }
