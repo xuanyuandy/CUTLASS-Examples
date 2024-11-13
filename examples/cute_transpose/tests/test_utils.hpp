@@ -74,15 +74,14 @@ bool compare(T const* data, T const* ref, unsigned int size)
     {
         if (data[i] != ref[i])
         {
-            // std::cout << i << " " << data[i] << " " << ref[i] << std::endl;
             status = false;
         }
     }
 
-    if (!status)
-    {
-        print<T>(data, ref, size);
-    }
+    // if (!status)
+    // {
+    //     print<T>(data, ref, size);
+    // }
 
     return status;
 }
