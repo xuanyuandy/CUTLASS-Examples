@@ -15,4 +15,10 @@ cudaError_t launch_transpose_shared_memory_bank_conflicts(T const* input_matrix,
                                                           unsigned int N,
                                                           cudaStream_t stream);
 
+template <typename T>
+cudaError_t
+launch_transpose_shared_memory_padded(T const* input_matrix, T* output_matrix,
+                                      unsigned int M, unsigned int N,
+                                      cudaStream_t stream);
+
 #endif // CUTE_TRANSPOSE_HPP
