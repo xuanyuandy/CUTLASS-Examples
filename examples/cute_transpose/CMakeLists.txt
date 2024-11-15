@@ -11,6 +11,7 @@ add_library(
     cute_transpose_naive.cu
     cute_transpose_shared_memory_bank_conflict.cu
     cute_transpose_shared_memory_padded.cu
+    cute_transpose_shared_memory_swizzled.cu
 )
 target_include_directories(${CUTE_TRANSPOSE} PRIVATE ${CUTLASS_INCLUDE_DIR} ${CUTLASS_UTILS_INCLUDE_DIR})
 set_target_properties(${CUTE_TRANSPOSE} PROPERTIES CUDA_ARCHITECTURES native)
