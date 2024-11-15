@@ -8,10 +8,8 @@ set(CUTE_TRANSPOSE cute_transpose)
 add_library(
     ${CUTE_TRANSPOSE}
     SHARED
-    cute_transpose_naive_coalesced_read.cu
-    cute_transpose_naive_coalesced_write.cu
-    cute_transpose_shared_memory_bank_conflict_read.cu
-    cute_transpose_shared_memory_bank_conflict_write.cu
+    cute_transpose_naive.cu
+    cute_transpose_shared_memory_bank_conflict.cu
     cute_transpose_shared_memory_padded.cu
 )
 target_include_directories(${CUTE_TRANSPOSE} PRIVATE ${CUTLASS_INCLUDE_DIR} ${CUTLASS_UTILS_INCLUDE_DIR})

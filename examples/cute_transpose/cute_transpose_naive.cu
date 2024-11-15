@@ -2,7 +2,6 @@
 
 #include <cute/tensor.hpp>
 
-#include "cute_transpose.cuh"
 #include "cute_transpose.hpp"
 
 template <class TENSOR_SRC, class TENSOR_DST, class THREAD_LAYOUT>
@@ -64,11 +63,16 @@ __global__ void transpose_naive(TENSOR_SRC tensor_src,
     // thread_global_tile_dst_transposed);
 }
 
+enum class GlobalMemoryCoalescedAccessMode
+{
+    Read,
+    Write
+};
+
 template <typename T>
-cudaError_t
-launch_transpose_naive_coalesced_read(T const* input_matrix, T* output_matrix,
-                                      unsigned int M, unsigned int N,
-                                      cudaStream_t stream)
+cudaError_t launch_transpose_naive_base(
+    T const* input_matrix, T* output_matrix, unsigned int M, unsigned int N,
+    GlobalMemoryCoalescedAccessMode coalesced_access_mode, cudaStream_t stream)
 {
     auto const tensor_shape{cute::make_shape(M, N)};
     auto const tensor_shape_transposed{cute::make_shape(N, M)};
@@ -126,10 +130,41 @@ launch_transpose_naive_coalesced_read(T const* input_matrix, T* output_matrix,
                         cute::size<1>(tiled_tensor_src)};
     dim3 const thread_dim{cute::size(thread_layout)};
 
-    transpose_naive<<<grid_dim, thread_dim, 0, stream>>>(
-        tiled_tensor_src, tiled_tensor_dst_transposed, thread_layout);
+    if (coalesced_access_mode == GlobalMemoryCoalescedAccessMode::Read)
+    {
+        transpose_naive<<<grid_dim, thread_dim, 0, stream>>>(
+            tiled_tensor_src, tiled_tensor_dst_transposed, thread_layout);
+    }
+    else
+    {
+        transpose_naive<<<grid_dim, thread_dim, 0, stream>>>(
+            tiled_tensor_src, tiled_tensor_dst_transposed,
+            thread_layout_transposed);
+    }
 
     return cudaGetLastError();
+}
+
+template <typename T>
+cudaError_t
+launch_transpose_naive_coalesced_read(T const* input_matrix, T* output_matrix,
+                                      unsigned int M, unsigned int N,
+                                      cudaStream_t stream)
+{
+    return launch_transpose_naive_base(input_matrix, output_matrix, M, N,
+                                       GlobalMemoryCoalescedAccessMode::Read,
+                                       stream);
+}
+
+template <typename T>
+cudaError_t
+launch_transpose_naive_coalesced_write(T const* input_matrix, T* output_matrix,
+                                       unsigned int M, unsigned int N,
+                                       cudaStream_t stream)
+{
+    return launch_transpose_naive_base(input_matrix, output_matrix, M, N,
+                                       GlobalMemoryCoalescedAccessMode::Write,
+                                       stream);
 }
 
 // Explicit instantiation.
@@ -144,5 +179,18 @@ launch_transpose_naive_coalesced_read<int>(int const* input_matrix,
                                            int* output_matrix, unsigned int M,
                                            unsigned int N, cudaStream_t stream);
 template cudaError_t launch_transpose_naive_coalesced_read<unsigned int>(
+    unsigned int const* input_matrix, unsigned int* output_matrix,
+    unsigned int M, unsigned int N, cudaStream_t stream);
+
+template cudaError_t launch_transpose_naive_coalesced_write<float>(
+    float const* input_matrix, float* output_matrix, unsigned int M,
+    unsigned int N, cudaStream_t stream);
+template cudaError_t launch_transpose_naive_coalesced_write<double>(
+    double const* input_matrix, double* output_matrix, unsigned int M,
+    unsigned int N, cudaStream_t stream);
+template cudaError_t launch_transpose_naive_coalesced_write<int>(
+    int const* input_matrix, int* output_matrix, unsigned int M, unsigned int N,
+    cudaStream_t stream);
+template cudaError_t launch_transpose_naive_coalesced_write<unsigned int>(
     unsigned int const* input_matrix, unsigned int* output_matrix,
     unsigned int M, unsigned int N, cudaStream_t stream);

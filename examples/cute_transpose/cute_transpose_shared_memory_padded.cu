@@ -2,7 +2,6 @@
 
 #include <cute/tensor.hpp>
 
-#include "cute_transpose.cuh"
 #include "cute_transpose.hpp"
 
 template <class TENSOR_SRC, class TENSOR_DST, class SHARED_MEMORY_LAYOUT_SRC,
