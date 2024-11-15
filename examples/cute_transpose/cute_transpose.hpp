@@ -16,18 +16,14 @@ launch_transpose_naive_coalesced_write(T const* input_matrix, T* output_matrix,
                                        cudaStream_t stream);
 
 template <typename T>
-cudaError_t launch_transpose_shared_memory_bank_conflict_read(T const* input_matrix,
-                                                          T* output_matrix,
-                                                          unsigned int M,
-                                                          unsigned int N,
-                                                          cudaStream_t stream);
+cudaError_t launch_transpose_shared_memory_bank_conflict_read(
+    T const* input_matrix, T* output_matrix, unsigned int M, unsigned int N,
+    cudaStream_t stream);
 
 template <typename T>
-cudaError_t launch_transpose_shared_memory_bank_conflict_write(T const* input_matrix,
-                                                          T* output_matrix,
-                                                          unsigned int M,
-                                                          unsigned int N,
-                                                          cudaStream_t stream);
+cudaError_t launch_transpose_shared_memory_bank_conflict_write(
+    T const* input_matrix, T* output_matrix, unsigned int M, unsigned int N,
+    cudaStream_t stream);
 
 template <typename T>
 cudaError_t

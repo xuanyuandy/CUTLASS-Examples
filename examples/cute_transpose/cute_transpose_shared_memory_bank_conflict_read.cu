@@ -115,11 +115,9 @@ __global__ void transpose_shared_memory_bank_conflict_read(
 }
 
 template <typename T>
-cudaError_t launch_transpose_shared_memory_bank_conflict_read(T const* input_matrix,
-                                                          T* output_matrix,
-                                                          unsigned int M,
-                                                          unsigned int N,
-                                                          cudaStream_t stream)
+cudaError_t launch_transpose_shared_memory_bank_conflict_read(
+    T const* input_matrix, T* output_matrix, unsigned int M, unsigned int N,
+    cudaStream_t stream)
 {
     auto const tensor_shape{cute::make_shape(M, N)};
     auto const tensor_shape_transposed{cute::make_shape(N, M)};
@@ -206,7 +204,7 @@ cudaError_t launch_transpose_shared_memory_bank_conflict_read(T const* input_mat
     dim3 const thread_dim{cute::size(thread_layout_src)};
 
     transpose_shared_memory_bank_conflict_read<<<grid_dim, thread_dim, 0,
-                                                   stream>>>(
+                                                 stream>>>(
         tiled_tensor_src, tiled_tensor_dst, shared_memory_layout_dst_transposed,
         shared_memory_layout_dst, thread_layout_src, thread_layout_dst);
 

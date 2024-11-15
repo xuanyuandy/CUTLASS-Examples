@@ -19,6 +19,9 @@ static const auto N_PRIME_VALUES{::testing::Values(2, 17, 83, 163, 257)};
 static const auto M_POWER_OF_TWO_VALUES{::testing::Values(1, 16, 256, 1024)};
 static const auto N_POWER_OF_TWO_VALUES{::testing::Values(1, 16, 256, 1024)};
 
+// static const auto M_POWER_OF_TWO_VALUES{::testing::Values(1)};
+// static const auto N_POWER_OF_TWO_VALUES{::testing::Values(4)};
+
 TEST_P(TestMatrixTransposeInt, TestMatrixTransposeInt)
 {
     RunTest(LAUNCH_TRANSPOSE_INT);
