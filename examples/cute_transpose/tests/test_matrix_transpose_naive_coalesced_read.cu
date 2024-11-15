@@ -5,13 +5,13 @@
 #include "cute_transpose.hpp"
 
 static const auto LAUNCH_TRANSPOSE_INT{
-    launch_transpose_shared_memory_bank_conflicts<int>};
+    launch_transpose_naive_coalesced_read<int>};
 static const auto LAUNCH_TRANSPOSE_UINT{
-    launch_transpose_shared_memory_bank_conflicts<unsigned int>};
+    launch_transpose_naive_coalesced_read<unsigned int>};
 static const auto LAUNCH_TRANSPOSE_FLOAT{
-    launch_transpose_shared_memory_bank_conflicts<float>};
+    launch_transpose_naive_coalesced_read<float>};
 static const auto LAUNCH_TRANSPOSE_DOUBLE{
-    launch_transpose_shared_memory_bank_conflicts<double>};
+    launch_transpose_naive_coalesced_read<double>};
 
 static const auto M_PRIME_VALUES{::testing::Values(2, 17, 83, 163, 257)};
 static const auto N_PRIME_VALUES{::testing::Values(2, 17, 83, 163, 257)};

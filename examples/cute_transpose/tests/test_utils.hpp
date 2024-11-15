@@ -78,18 +78,18 @@ bool compare(T const* data, T const* ref, unsigned int size)
         }
     }
 
-    // if (!status)
-    // {
-    //     print<T>(data, ref, size);
-    // }
+    if (!status)
+    {
+        print<T>(data, ref, size);
+    }
 
     return status;
 }
 
 template <class T>
 float measure_performance(std::function<T(cudaStream_t)> const& bound_function,
-                          cudaStream_t stream, unsigned int num_repeats = 100,
-                          unsigned int num_warmups = 100)
+                          cudaStream_t stream, unsigned int num_repeats = 1,
+                          unsigned int num_warmups = 0)
 {
     cudaEvent_t start, stop;
     float time;

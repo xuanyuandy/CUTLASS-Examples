@@ -5,7 +5,13 @@ project(CUTE-TRANSPOSE-NAIVE VERSION 0.0.1 LANGUAGES CXX CUDA)
 # Set the CUDA architecture to compile the code for
 # https://cmake.org/cmake/help/latest/prop_tgt/CUDA_ARCHITECTURES.html
 set(CUTE_TRANSPOSE cute_transpose)
-add_library(${CUTE_TRANSPOSE} SHARED cute_transpose_naive.cu cute_transpose_shared_memory_bank_conflicts.cu)
+add_library(
+    ${CUTE_TRANSPOSE}
+    SHARED
+    cute_transpose_naive.cu
+    cute_transpose_shared_memory_bank_conflict.cu
+    cute_transpose_shared_memory_padded.cu
+)
 target_include_directories(${CUTE_TRANSPOSE} PRIVATE ${CUTLASS_INCLUDE_DIR} ${CUTLASS_UTILS_INCLUDE_DIR})
 set_target_properties(${CUTE_TRANSPOSE} PROPERTIES CUDA_ARCHITECTURES native)
 target_compile_options(${CUTE_TRANSPOSE} PRIVATE --expt-relaxed-constexpr)

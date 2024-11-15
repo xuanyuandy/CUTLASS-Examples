@@ -4,6 +4,16 @@
 
 The CUDA kernel examples using [CUTLASS](https://github.com/NVIDIA/cutlass) and [CuTe](https://github.com/NVIDIA/cutlass/blob/main/media/docs/cute/00_quickstart.md) abstractions.
 
+## Examples
+
+### CuTe Matrix Transpose
+
+- CuTe Matrix Transpose Global Memory Access Coalesced Read
+- CuTe Matrix Transpose Global Memory Access Coalesced Write
+- CuTe Matrix Transpose Global Shared Memory Bank Read Conflicts
+- CuTe Matrix Transpose Global Shared Memory Bank Write Conflicts
+- CuTe Matrix Transpose Global Shared Memory Bank Conflicts Free with Padding
+
 ## Usages
 
 To download the CUTLASS-Examples repository, please run the following command.
@@ -36,6 +46,14 @@ To run the custom Docker container, please run the following command.
 
 ```bash
 $ docker run -it --rm --gpus device=0 -v $(pwd):/mnt -w /mnt cuda:12.4.1
+```
+
+To run the custom Docker container with NVIDIA Nsight Compute, please run the following command.
+
+```bash
+$ xhost +
+$ docker run -it --rm --gpus all -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --cap-add=SYS_ADMIN --security-opt seccomp=unconfined -v $(pwd):/mnt -w /mnt --network=host cuda:12.4.1
+$ xhost +
 ```
 
 ## CUTLASS CMake Examples
@@ -79,4 +97,5 @@ Performance measurements will run selected CUDA kernels for large problems multi
 
 ## References
 
+- [CuTe Layout Algebra](https://leimao.github.io/article/CuTe-Layout-Algebra/)
 - [Build and Develop CUTLASS CUDA Kernels](https://leimao.github.io/blog/Build-Develop-CUTLASS-CUDA-Kernels/)

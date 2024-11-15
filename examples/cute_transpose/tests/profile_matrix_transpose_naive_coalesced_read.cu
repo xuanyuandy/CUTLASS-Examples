@@ -4,7 +4,8 @@
 
 #include "cute_transpose.hpp"
 
-static const auto LAUNCH_TRANSPOSE_INT{launch_transpose_naive<int>};
+static const auto LAUNCH_TRANSPOSE_INT{
+    launch_transpose_naive_coalesced_read<int>};
 
 static const auto M_POWER_OF_TWO_VALUES{::testing::Values(16384)};
 static const auto N_POWER_OF_TWO_VALUES{::testing::Values(16384)};
