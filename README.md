@@ -38,6 +38,14 @@ To run the custom Docker container, please run the following command.
 $ docker run -it --rm --gpus device=0 -v $(pwd):/mnt -w /mnt cuda:12.4.1
 ```
 
+To run the custom Docker container with NVIDIA Nsight Compute, please run the following command.
+
+```bash
+$ xhost +
+$ docker run -it --rm --gpus all -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --cap-add=SYS_ADMIN --security-opt seccomp=unconfined -v $(pwd):/mnt -w /mnt --network=host cuda:12.4.1
+$ xhost +
+```
+
 ## CUTLASS CMake Examples
 
 ### Build Examples

@@ -4,10 +4,14 @@
 
 #include "cute_transpose.hpp"
 
-static const auto LAUNCH_TRANSPOSE_INT{launch_transpose_naive<int>};
-static const auto LAUNCH_TRANSPOSE_UINT{launch_transpose_naive<unsigned int>};
-static const auto LAUNCH_TRANSPOSE_FLOAT{launch_transpose_naive<float>};
-static const auto LAUNCH_TRANSPOSE_DOUBLE{launch_transpose_naive<double>};
+static const auto LAUNCH_TRANSPOSE_INT{
+    launch_transpose_naive_coalesced_read<int>};
+static const auto LAUNCH_TRANSPOSE_UINT{
+    launch_transpose_naive_coalesced_read<unsigned int>};
+static const auto LAUNCH_TRANSPOSE_FLOAT{
+    launch_transpose_naive_coalesced_read<float>};
+static const auto LAUNCH_TRANSPOSE_DOUBLE{
+    launch_transpose_naive_coalesced_read<double>};
 
 static const auto M_PRIME_VALUES{::testing::Values(2, 17, 83, 163, 257)};
 static const auto N_PRIME_VALUES{::testing::Values(2, 17, 83, 163, 257)};

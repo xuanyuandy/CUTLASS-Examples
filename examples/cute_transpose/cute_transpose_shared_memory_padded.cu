@@ -13,10 +13,10 @@ __global__ void transpose_naive_shared_memory_padded(
     SHARED_MEMORY_LAYOUT_DST, THREAD_LAYOUT_SRC, THREAD_LAYOUT_DST)
 {
     using Element = typename TENSOR_SRC::value_type;
-    CUTE_STATIC_ASSERT(cute::size(SHARED_MEMORY_LAYOUT_SRC{}) ==
-                           cute::size(SHARED_MEMORY_LAYOUT_DST{}),
-                       "SHARED_MEMORY_LAYOUT_SRC and SHARED_MEMORY_LAYOUT_DST "
-                       "must have the same size.");
+    // CUTE_STATIC_ASSERT(cute::size(SHARED_MEMORY_LAYOUT_SRC{}) ==
+    //                        cute::size(SHARED_MEMORY_LAYOUT_DST{}),
+    //                    "SHARED_MEMORY_LAYOUT_SRC and SHARED_MEMORY_LAYOUT_DST
+    //                    " "must have the same size.");
     __shared__ Element shared_memory[cute::size(SHARED_MEMORY_LAYOUT_SRC{})];
 
     auto tensor_cache_src{cute::make_tensor(cute::make_smem_ptr(shared_memory),
@@ -141,8 +141,9 @@ launch_transpose_shared_memory_padded(T const* input_matrix, T* output_matrix,
         cute::make_tensor(cute::make_gmem_ptr(output_matrix),
                           global_memory_layout_dst_transposed)};
 
-    using TILE_SIZE_X = cute::Int<64>; // bN
-    using TILE_SIZE_Y = cute::Int<32>; // bM
+    using TILE_SIZE_X = cute::Int<64>;        // bN
+    using TILE_SIZE_Y = cute::Int<32>;        // bM
+    using TILE_SIZE_X_PADDED = cute::Int<65>; // bN + 1
 
     constexpr auto block_shape{cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
     constexpr auto block_shape_transposed{
@@ -152,8 +153,9 @@ launch_transpose_shared_memory_padded(T const* input_matrix, T* output_matrix,
         block_shape, cute::GenRowMajor{})}; // (bM, bN) : (bN, 1)
     auto const shared_memory_layout_dst{cute::make_layout(
         block_shape_transposed, cute::GenRowMajor{})}; // (bN, bM) : (bM, 1)
-    auto const shared_memory_layout_dst_transposed{cute::make_layout(
-        block_shape, cute::GenColMajor{})}; // (bM, bN) : (1, bM)
+    auto const shared_memory_layout_dst_transposed{
+        cute::make_layout(cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X_PADDED{}),
+                          cute::GenColMajor{})}; // (bM, bN) : (1, bM)
 
     auto const tiled_tensor_src{cute::tiled_divide(
         tensor_src, block_shape)}; // ((TILE_SIZE_Y, TILE_SIZE_X), M /

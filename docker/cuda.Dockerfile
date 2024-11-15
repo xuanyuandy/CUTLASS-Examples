@@ -53,3 +53,10 @@ RUN cd /usr/local/bin && \
     ln -s /usr/bin/python3 python && \
     ln -s /usr/bin/pip3 pip && \
     pip install --upgrade pip setuptools wheel
+
+# QT6 is required for the Nsight Compute UI.
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends \
+        libxcb-cursor0 \
+        qt6-base-dev && \
+    apt-get clean
