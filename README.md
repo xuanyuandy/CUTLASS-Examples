@@ -46,8 +46,8 @@ To run the custom Docker container with NVIDIA Nsight Compute, please run the fo
 
 ```bash
 $ xhost +
-$ docker run -it --rm --gpus all -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --cap-add=SYS_ADMIN --security-opt seccomp=unconfined -v $(pwd):/mnt -w /mnt --network=host cuda:12.4.1
-$ xhost +
+$ docker run -it --rm --gpus device=0 -v $(pwd):/mnt -w /mnt -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix --cap-add=SYS_ADMIN --security-opt seccomp=unconfined --network=host cuda:12.4.1
+$ xhost -
 ```
 
 ## CUTLASS CMake Examples
