@@ -34,7 +34,7 @@ launch_transpose_shared_memory_padded(T const* input_matrix, T* output_matrix,
 template <typename T>
 cudaError_t
 launch_transpose_shared_memory_swizzled(T const* input_matrix, T* output_matrix,
-                                      unsigned int M, unsigned int N,
-                                      cudaStream_t stream);
+                                        unsigned int M, unsigned int N,
+                                        cudaStream_t stream);
 
 #endif // CUTE_TRANSPOSE_HPP

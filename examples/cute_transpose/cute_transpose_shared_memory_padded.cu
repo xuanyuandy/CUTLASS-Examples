@@ -16,7 +16,8 @@ __global__ void transpose_shared_memory_padded(
                            cute::cosize(SHARED_MEMORY_LAYOUT_DST{}),
                        "SHARED_MEMORY_LAYOUT_SRC and SHARED_MEMORY_LAYOUT_DST "
                        "must have the same size.");
-    __shared__ Element shared_memory[cute::cosize(SHARED_MEMORY_LAYOUT_SRC{}) + 1];
+    __shared__ Element
+        shared_memory[cute::cosize(SHARED_MEMORY_LAYOUT_SRC{}) + 1];
 
     auto tensor_cache_src{cute::make_tensor(cute::make_smem_ptr(shared_memory),
                                             SHARED_MEMORY_LAYOUT_SRC{})};
@@ -110,9 +111,10 @@ __global__ void transpose_shared_memory_padded(
 }
 
 template <typename T>
-cudaError_t launch_transpose_shared_memory_padded(
-    T const* input_matrix, T* output_matrix, unsigned int M, unsigned int N,
-    cudaStream_t stream)
+cudaError_t
+launch_transpose_shared_memory_padded(T const* input_matrix, T* output_matrix,
+                                      unsigned int M, unsigned int N,
+                                      cudaStream_t stream)
 {
     auto const tensor_shape{cute::make_shape(M, N)};
     auto const tensor_shape_transposed{cute::make_shape(N, M)};
@@ -135,9 +137,9 @@ cudaError_t launch_transpose_shared_memory_padded(
         cute::make_tensor(cute::make_gmem_ptr(output_matrix),
                           global_memory_layout_dst_transposed)};
 
-    using TILE_SIZE_X = cute::Int<64>; // bN
+    using TILE_SIZE_X = cute::Int<64>;        // bN
     using TILE_SIZE_X_PADDED = cute::Int<65>; // bN + 1
-    using TILE_SIZE_Y = cute::Int<32>; // bM
+    using TILE_SIZE_Y = cute::Int<32>;        // bM
 
     constexpr auto block_shape{cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
     constexpr auto block_shape_transposed{
@@ -146,7 +148,9 @@ cudaError_t launch_transpose_shared_memory_padded(
     auto const shared_memory_layout_src{cute::make_layout(
         block_shape, cute::GenRowMajor{})}; // (bM, bN) : (bN, 1)
     auto const shared_memory_layout_src_padded{cute::make_layout(
-        block_shape, cute::make_stride(TILE_SIZE_X_PADDED{}, cute::Int<1>{}))}; // (bM, bN + 1) : (bN + 1, 1)
+        block_shape,
+        cute::make_stride(TILE_SIZE_X_PADDED{},
+                          cute::Int<1>{}))}; // (bM, bN + 1) : (bN + 1, 1)
     auto const shared_memory_layout_dst{cute::make_layout(
         block_shape_transposed, cute::GenRowMajor{})}; // (bN, bM) : (bM, 1)
     auto const shared_memory_layout_dst_transposed{cute::make_layout(
@@ -183,15 +187,13 @@ cudaError_t launch_transpose_shared_memory_padded(
                         cute::size<1>(tiled_tensor_src)};
     dim3 const thread_dim{cute::size(thread_layout)};
 
-    transpose_shared_memory_padded<<<grid_dim, thread_dim, 0,
-                                            stream>>>(
+    transpose_shared_memory_padded<<<grid_dim, thread_dim, 0, stream>>>(
         tiled_tensor_src, tiled_tensor_dst_transposed,
-        shared_memory_layout_src_padded, shared_memory_layout_src_padded, thread_layout,
-        thread_layout_transposed);
+        shared_memory_layout_src_padded, shared_memory_layout_src_padded,
+        thread_layout, thread_layout_transposed);
 
     return cudaGetLastError();
 }
-
 
 // Explicit instantiation.
 template cudaError_t launch_transpose_shared_memory_padded<float>(
@@ -200,10 +202,10 @@ template cudaError_t launch_transpose_shared_memory_padded<float>(
 template cudaError_t launch_transpose_shared_memory_padded<double>(
     double const* input_matrix, double* output_matrix, unsigned int M,
     unsigned int N, cudaStream_t stream);
-template cudaError_t launch_transpose_shared_memory_padded<int>(
-    int const* input_matrix, int* output_matrix, unsigned int M, unsigned int N,
-    cudaStream_t stream);
 template cudaError_t
-launch_transpose_shared_memory_padded<unsigned int>(
+launch_transpose_shared_memory_padded<int>(int const* input_matrix,
+                                           int* output_matrix, unsigned int M,
+                                           unsigned int N, cudaStream_t stream);
+template cudaError_t launch_transpose_shared_memory_padded<unsigned int>(
     unsigned int const* input_matrix, unsigned int* output_matrix,
     unsigned int M, unsigned int N, cudaStream_t stream);
