@@ -4,11 +4,11 @@
 
 #include "cute_transpose.hpp"
 
-static const auto LAUNCH_TRANSPOSE_FLOAT{
+static auto const LAUNCH_TRANSPOSE_FLOAT{
     launch_transpose_shared_memory_padded<float>};
 
-static const auto M_POWER_OF_TWO_VALUES{::testing::Values(16384)};
-static const auto N_POWER_OF_TWO_VALUES{::testing::Values(16384)};
+static auto const M_POWER_OF_TWO_VALUES{::testing::Values(16384)};
+static auto const N_POWER_OF_TWO_VALUES{::testing::Values(16384)};
 
 TEST_P(TestMatrixTransposeFloat, TestMatrixTransposeFloat)
 {

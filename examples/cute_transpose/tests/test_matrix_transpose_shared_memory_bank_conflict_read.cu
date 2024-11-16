@@ -4,16 +4,16 @@
 
 #include "cute_transpose.hpp"
 
-static const auto LAUNCH_TRANSPOSE_FLOAT{
+static auto const LAUNCH_TRANSPOSE_FLOAT{
     launch_transpose_shared_memory_bank_conflict_read<float>};
-static const auto LAUNCH_TRANSPOSE_DOUBLE{
+static auto const LAUNCH_TRANSPOSE_DOUBLE{
     launch_transpose_shared_memory_bank_conflict_read<double>};
 
-static const auto M_PRIME_VALUES{::testing::Values(2, 17, 83, 163, 257)};
-static const auto N_PRIME_VALUES{::testing::Values(2, 17, 83, 163, 257)};
+static auto const M_PRIME_VALUES{::testing::Values(2, 17, 83, 163, 257)};
+static auto const N_PRIME_VALUES{::testing::Values(2, 17, 83, 163, 257)};
 
-static const auto M_POWER_OF_TWO_VALUES{::testing::Values(1, 16, 256, 1024)};
-static const auto N_POWER_OF_TWO_VALUES{::testing::Values(1, 16, 256, 1024)};
+static auto const M_POWER_OF_TWO_VALUES{::testing::Values(1, 16, 256, 1024)};
+static auto const N_POWER_OF_TWO_VALUES{::testing::Values(1, 16, 256, 1024)};
 
 TEST_P(TestMatrixTransposeFloat, TestMatrixTransposeFloat)
 {

@@ -186,7 +186,7 @@ protected:
     }
 
     void MeasurePerformance(cudaError_t (*launch_transpose)(
-        T const*, T*, unsigned int, unsigned int, cudaStream_t))
+        T const*, T*, unsigned int, unsigned int, cudaStream_t), unsigned int num_repeats = 20, unsigned int num_warmups = 20)
     {
         GTEST_COUT << "M: " << m_M << " N: " << m_N << std::endl;
 
