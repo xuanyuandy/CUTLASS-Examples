@@ -236,14 +236,6 @@ protected:
     thrust::device_vector<T> m_d_dst;
 };
 
-class TestMatrixTransposeInt : public TestMatrixTranspose<int>
-{
-};
-
-class TestMatrixTransposeUnsignedInt : public TestMatrixTranspose<unsigned int>
-{
-};
-
 class TestMatrixTransposeFloat : public TestMatrixTranspose<float>
 {
 };

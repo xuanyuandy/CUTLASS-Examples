@@ -4,19 +4,20 @@
 
 #include "cute_transpose.hpp"
 
-static const auto LAUNCH_TRANSPOSE_INT{
-    launch_transpose_shared_memory_bank_conflict_write<int>};
+static const auto LAUNCH_TRANSPOSE_FLOAT{
+    launch_transpose_shared_memory_bank_conflict_write<float>};
 
 static const auto M_POWER_OF_TWO_VALUES{::testing::Values(16384)};
 static const auto N_POWER_OF_TWO_VALUES{::testing::Values(16384)};
 
-TEST_P(TestMatrixTransposeInt, TestMatrixTransposeInt)
+TEST_P(TestMatrixTransposeFloat, TestMatrixTransposeFloat)
 {
-    // RunTest(LAUNCH_TRANSPOSE_INT); // Skip CPU test
+    // RunTest(LAUNCH_TRANSPOSE_FLOAT); // Skip CPU test
     // because large problems on CPU are slow.
-    MeasurePerformance(LAUNCH_TRANSPOSE_INT);
+    MeasurePerformance(LAUNCH_TRANSPOSE_FLOAT);
 }
 
-INSTANTIATE_TEST_SUITE_P(TestMatrixTransposePowerOfTwo, TestMatrixTransposeInt,
+INSTANTIATE_TEST_SUITE_P(TestMatrixTransposePowerOfTwo,
+                         TestMatrixTransposeFloat,
                          ::testing::Combine(M_POWER_OF_TWO_VALUES,
                                             N_POWER_OF_TWO_VALUES));

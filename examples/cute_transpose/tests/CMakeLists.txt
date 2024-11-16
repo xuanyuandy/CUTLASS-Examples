@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.28)
 project(CUTE-TRANSPOSE-NAIVE-TEST VERSION 0.0.1 LANGUAGES CXX CUDA)
 
 find_package(GTest REQUIRED)
-# Find CUDA Toolkit
 find_package(CUDAToolkit REQUIRED)
 
 find_path(CUTE_TRANSPOSE_INCLUDE cute_transpose.hpp HINTS ${CMAKE_SOURCE_DIR}/examples/cute_transpose/)
@@ -78,7 +77,6 @@ target_link_libraries(profile_matrix_transpose_shared_memory_padded GTest::gtest
 set_target_properties(profile_matrix_transpose_shared_memory_padded PROPERTIES CUDA_ARCHITECTURES native)
 
 add_test(ProfileAllMatrixTransposeSharedMemoryPadded profile_matrix_transpose_shared_memory_padded)
-
 
 add_executable(test_matrix_transpose_shared_memory_swizzled test_matrix_transpose_shared_memory_swizzled.cu)
 target_include_directories(test_matrix_transpose_shared_memory_swizzled PRIVATE ${CUTE_TRANSPOSE_INCLUDE})
