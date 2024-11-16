@@ -6,13 +6,7 @@ The CUDA kernel examples using [CUTLASS](https://github.com/NVIDIA/cutlass) and 
 
 ## Examples
 
-### CuTe Matrix Transpose
-
-- CuTe Matrix Transpose Global Memory Access Coalesced Read
-- CuTe Matrix Transpose Global Memory Access Coalesced Write
-- CuTe Matrix Transpose Global Shared Memory Bank Read Conflicts
-- CuTe Matrix Transpose Global Shared Memory Bank Write Conflicts
-- CuTe Matrix Transpose Global Shared Memory Bank Conflicts Free with Padding
+- [CuTe Matrix Transpose](/examples/cute_transpose/)
 
 ## Usages
 

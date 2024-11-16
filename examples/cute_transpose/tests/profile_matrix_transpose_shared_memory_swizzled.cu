@@ -5,7 +5,7 @@
 #include "cute_transpose.hpp"
 
 static auto const LAUNCH_TRANSPOSE_FLOAT{
-    launch_transpose_shared_memory_bank_conflict_write<float>};
+    launch_transpose_shared_memory_swizzled<float>};
 
 static auto const M_POWER_OF_TWO_VALUES{::testing::Values(16384)};
 static auto const N_POWER_OF_TWO_VALUES{::testing::Values(16384)};

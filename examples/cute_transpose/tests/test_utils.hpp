@@ -88,8 +88,8 @@ bool compare(T const* data, T const* ref, unsigned int size)
 
 template <class T>
 float measure_performance(std::function<T(cudaStream_t)> const& bound_function,
-                          cudaStream_t stream, unsigned int num_repeats = 1,
-                          unsigned int num_warmups = 0)
+                          cudaStream_t stream, unsigned int num_repeats = 20,
+                          unsigned int num_warmups = 10)
 {
     cudaEvent_t start, stop;
     float time;
@@ -185,8 +185,10 @@ protected:
             compare(m_h_dst.data(), m_h_dst_ref.data(), m_h_dst.size()));
     }
 
-    void MeasurePerformance(cudaError_t (*launch_transpose)(
-        T const*, T*, unsigned int, unsigned int, cudaStream_t))
+    void MeasurePerformance(
+        cudaError_t (*launch_transpose)(T const*, T*, unsigned int,
+                                        unsigned int, cudaStream_t),
+        unsigned int num_repeats = 20, unsigned int num_warmups = 20)
     {
         GTEST_COUT << "M: " << m_M << " N: " << m_N << std::endl;
 
@@ -234,14 +236,6 @@ protected:
 
     thrust::device_vector<T> m_d_src;
     thrust::device_vector<T> m_d_dst;
-};
-
-class TestMatrixTransposeInt : public TestMatrixTranspose<int>
-{
-};
-
-class TestMatrixTransposeUnsignedInt : public TestMatrixTranspose<unsigned int>
-{
 };
 
 class TestMatrixTransposeFloat : public TestMatrixTranspose<float>

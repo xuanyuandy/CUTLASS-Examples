@@ -5,9 +5,9 @@
 #include "cute_transpose.hpp"
 
 static auto const LAUNCH_TRANSPOSE_FLOAT{
-    launch_transpose_shared_memory_padded<float>};
+    launch_transpose_shared_memory_swizzled<float>};
 static auto const LAUNCH_TRANSPOSE_DOUBLE{
-    launch_transpose_shared_memory_padded<double>};
+    launch_transpose_shared_memory_swizzled<double>};
 
 static auto const M_PRIME_VALUES{::testing::Values(2, 17, 83, 163, 257)};
 static auto const N_PRIME_VALUES{::testing::Values(2, 17, 83, 163, 257)};

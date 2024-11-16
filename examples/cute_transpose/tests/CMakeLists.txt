@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.28)
 project(CUTE-TRANSPOSE-NAIVE-TEST VERSION 0.0.1 LANGUAGES CXX CUDA)
 
 find_package(GTest REQUIRED)
-# Find CUDA Toolkit
 find_package(CUDAToolkit REQUIRED)
 
 find_path(CUTE_TRANSPOSE_INCLUDE cute_transpose.hpp HINTS ${CMAKE_SOURCE_DIR}/examples/cute_transpose/)
@@ -79,3 +78,16 @@ set_target_properties(profile_matrix_transpose_shared_memory_padded PROPERTIES C
 
 add_test(ProfileAllMatrixTransposeSharedMemoryPadded profile_matrix_transpose_shared_memory_padded)
 
+add_executable(test_matrix_transpose_shared_memory_swizzled test_matrix_transpose_shared_memory_swizzled.cu)
+target_include_directories(test_matrix_transpose_shared_memory_swizzled PRIVATE ${CUTE_TRANSPOSE_INCLUDE})
+target_link_libraries(test_matrix_transpose_shared_memory_swizzled GTest::gtest GTest::gtest_main ${CUTE_TRANSPOSE})
+set_target_properties(test_matrix_transpose_shared_memory_swizzled PROPERTIES CUDA_ARCHITECTURES native)
+
+add_test(TestAllMatrixTransposeSharedMemorySwizzled test_matrix_transpose_shared_memory_swizzled)
+
+add_executable(profile_matrix_transpose_shared_memory_swizzled profile_matrix_transpose_shared_memory_swizzled.cu)
+target_include_directories(profile_matrix_transpose_shared_memory_swizzled PRIVATE ${CUTE_TRANSPOSE_INCLUDE})
+target_link_libraries(profile_matrix_transpose_shared_memory_swizzled GTest::gtest GTest::gtest_main ${CUTE_TRANSPOSE})
+set_target_properties(profile_matrix_transpose_shared_memory_swizzled PROPERTIES CUDA_ARCHITECTURES native)
+
+add_test(ProfileAllMatrixTransposeSharedMemorySwizzled profile_matrix_transpose_shared_memory_swizzled)
