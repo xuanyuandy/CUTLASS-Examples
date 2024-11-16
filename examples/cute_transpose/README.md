@@ -47,20 +47,3 @@ for file in build/examples/cute_transpose/tests/profile_*; do
     ncu --set full -f -o ncu_reports/"$filename" "$file"
 done
 ```
-
-Create a bash script that lists all the file names beginning with "profile\_" in a directory.
-
-```bash
-$ cat list_profile_files.sh
-#!/bin/bash
-
-for file in build/examples/cute_transpose/tests/profile_*; do
-    filename=$(basename -- "$file")
-    ncu --set full -f -o ncu_reports/"$filename" "$file"
-done
-```
-
-```bash
-$ chmod +x list_profile_files.sh
-$ ./list_profile_files.sh
-```
