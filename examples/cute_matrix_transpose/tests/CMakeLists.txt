@@ -5,7 +5,7 @@ project(CUTE-TRANSPOSE-NAIVE-TEST VERSION 0.0.1 LANGUAGES CXX CUDA)
 find_package(GTest REQUIRED)
 find_package(CUDAToolkit REQUIRED)
 
-find_path(CUTE_TRANSPOSE_INCLUDE cute_transpose.hpp HINTS ${CMAKE_SOURCE_DIR}/examples/cute_transpose/)
+find_path(CUTE_TRANSPOSE_INCLUDE cute_matrix_transpose.hpp HINTS ${CMAKE_SOURCE_DIR}/examples/cute_matrix_transpose/)
 
 add_executable(test_matrix_transpose_naive_coalesced_read test_matrix_transpose_naive_coalesced_read.cu)
 target_include_directories(test_matrix_transpose_naive_coalesced_read PRIVATE ${CUTE_TRANSPOSE_INCLUDE})

@@ -5,7 +5,7 @@
 
 #include <cute/tensor.hpp>
 
-#include "cute_transpose.hpp"
+#include "cute_matrix_transpose.hpp"
 
 template <class TENSOR_SRC, class TENSOR_DST, class SHARED_MEMORY_LAYOUT_SRC,
           class SHARED_MEMORY_LAYOUT_DST, class THREAD_LAYOUT_SRC,

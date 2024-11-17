@@ -2,7 +2,7 @@
 
 #include "test_utils.hpp"
 
-#include "cute_transpose.hpp"
+#include "cute_matrix_transpose.hpp"
 
 static auto const LAUNCH_TRANSPOSE_FLOAT{
     launch_transpose_naive_coalesced_read<float>};
