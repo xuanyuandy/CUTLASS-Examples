@@ -2,12 +2,12 @@
 
 #include "test_utils.hpp"
 
-#include "cute_transpose.hpp"
+#include "cute_matrix_transpose.hpp"
 
 static auto const LAUNCH_TRANSPOSE_FLOAT{
-    launch_transpose_shared_memory_padded<float>};
+    launch_transpose_shared_memory_bank_conflict_read<float>};
 static auto const LAUNCH_TRANSPOSE_DOUBLE{
-    launch_transpose_shared_memory_padded<double>};
+    launch_transpose_shared_memory_bank_conflict_read<double>};
 
 static auto const M_PRIME_VALUES{::testing::Values(2, 17, 83, 163, 257)};
 static auto const N_PRIME_VALUES{::testing::Values(2, 17, 83, 163, 257)};

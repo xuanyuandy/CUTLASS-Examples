@@ -4,7 +4,7 @@
 
 #include "test_utils.hpp"
 
-#include "cute_transpose.hpp"
+#include "cute_matrix_transpose.hpp"
 
 static std::vector<cudaError_t (*)(float const*, float*, unsigned int,
                                    unsigned int, cudaStream_t)> const

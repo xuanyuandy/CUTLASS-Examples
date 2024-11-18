@@ -42,7 +42,7 @@ The following tables show the performance measurements of the matrix transpose k
 ### Run Nsight Compute Profiling
 
 ```bash
-for file in build/examples/cute_transpose/tests/profile_*; do
+for file in build/examples/cute_matrix_transpose/tests/profile_*; do
     filename=$(basename -- "$file")
     ncu --set full -f -o ncu_reports/"$filename" "$file"
 done

@@ -2,7 +2,7 @@
 
 #include <cute/tensor.hpp>
 
-#include "cute_transpose.hpp"
+#include "cute_matrix_transpose.hpp"
 
 template <class TENSOR_SRC, class TENSOR_DST, class THREAD_LAYOUT>
 __global__ void transpose_naive(TENSOR_SRC tensor_src,
@@ -110,11 +110,6 @@ cudaError_t launch_transpose_naive_base(
     using THREAD_BLOCK_SIZE_X = cute::Int<32>; // tN
     using THREAD_BLOCK_SIZE_Y = cute::Int<8>;  // tM
 
-    CUTE_STATIC_ASSERT(TILE_SIZE_X::value % THREAD_BLOCK_SIZE_X::value == 0,
-                       "TILE_SIZE_X must be divisible by THREAD_BLOCK_SIZE_X");
-    CUTE_STATIC_ASSERT(TILE_SIZE_Y::value % THREAD_BLOCK_SIZE_Y::value == 0,
-                       "TILE_SIZE_Y must be divisible by THREAD_BLOCK_SIZE_Y");
-
     constexpr auto thread_block_shape{
         cute::make_shape(THREAD_BLOCK_SIZE_Y{}, THREAD_BLOCK_SIZE_X{})};
     constexpr auto thread_block_shape_transposed{
@@ -128,15 +123,28 @@ cudaError_t launch_transpose_naive_base(
 
     dim3 const grid_dim{cute::size<2>(tiled_tensor_src),
                         cute::size<1>(tiled_tensor_src)};
-    dim3 const thread_dim{cute::size(thread_layout)};
+    dim3 const thread_dim{
+        cute::size(THREAD_BLOCK_SIZE_X::value * THREAD_BLOCK_SIZE_Y::value)};
 
     if (coalesced_access_mode == GlobalMemoryCoalescedAccessMode::Read)
     {
+        CUTE_STATIC_ASSERT(
+            TILE_SIZE_X::value % THREAD_BLOCK_SIZE_X::value == 0,
+            "TILE_SIZE_X must be divisible by THREAD_BLOCK_SIZE_X");
+        CUTE_STATIC_ASSERT(
+            TILE_SIZE_Y::value % THREAD_BLOCK_SIZE_Y::value == 0,
+            "TILE_SIZE_Y must be divisible by THREAD_BLOCK_SIZE_Y");
         transpose_naive<<<grid_dim, thread_dim, 0, stream>>>(
             tiled_tensor_src, tiled_tensor_dst_transposed, thread_layout);
     }
     else
     {
+        CUTE_STATIC_ASSERT(
+            TILE_SIZE_X::value % THREAD_BLOCK_SIZE_Y::value == 0,
+            "TILE_SIZE_X must be divisible by THREAD_BLOCK_SIZE_X");
+        CUTE_STATIC_ASSERT(
+            TILE_SIZE_Y::value % THREAD_BLOCK_SIZE_X::value == 0,
+            "TILE_SIZE_Y must be divisible by THREAD_BLOCK_SIZE_Y");
         transpose_naive<<<grid_dim, thread_dim, 0, stream>>>(
             tiled_tensor_src, tiled_tensor_dst_transposed,
             thread_layout_transposed);

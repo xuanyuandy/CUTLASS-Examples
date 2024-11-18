@@ -6,7 +6,7 @@ The CUDA kernel examples using [CUTLASS](https://github.com/NVIDIA/cutlass) and 
 
 ## Examples
 
-- [CuTe Matrix Transpose](/examples/cute_transpose/)
+- [CuTe Matrix Transpose](/examples/cute_matrix_transpose/)
 
 ## Usages
 

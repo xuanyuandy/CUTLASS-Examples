@@ -2,10 +2,10 @@
 
 #include "test_utils.hpp"
 
-#include "cute_transpose.hpp"
+#include "cute_matrix_transpose.hpp"
 
 static auto const LAUNCH_TRANSPOSE_FLOAT{
-    launch_transpose_shared_memory_padded<float>};
+    launch_transpose_shared_memory_bank_conflict_read<float>};
 
 static auto const M_POWER_OF_TWO_VALUES{::testing::Values(16384)};
 static auto const N_POWER_OF_TWO_VALUES{::testing::Values(16384)};
