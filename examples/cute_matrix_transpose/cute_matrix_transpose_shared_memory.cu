@@ -189,7 +189,8 @@ cudaError_t launch_transpose_shared_memory_bank_conflict_base(
 
     dim3 const grid_dim{cute::size<2>(tiled_tensor_src),
                         cute::size<1>(tiled_tensor_src)};
-    dim3 const thread_dim{cute::size(thread_layout)};
+    dim3 const thread_dim{
+        cute::size(THREAD_BLOCK_SIZE_X::value * THREAD_BLOCK_SIZE_Y::value)};
 
     if (bank_conflict_access_mode == SharedMemoryBankConflictAccessMode::Read)
     {
@@ -270,7 +271,7 @@ launch_transpose_shared_memory_padded(T const* input_matrix, T* output_matrix,
     auto const shared_memory_layout_src_padded{cute::make_layout(
         block_shape,
         cute::make_stride(TILE_SIZE_X_PADDED{},
-                          cute::Int<1>{}))}; // (bM, bN + 1) : (bN + 1, 1)
+                          cute::Int<1>{}))}; // (bM, bN) : (bN + 1, 1)
     auto const shared_memory_layout_dst{cute::make_layout(
         block_shape_transposed, cute::GenRowMajor{})}; // (bN, bM) : (bM, 1)
     auto const shared_memory_layout_dst_transposed{cute::make_layout(
@@ -305,7 +306,8 @@ launch_transpose_shared_memory_padded(T const* input_matrix, T* output_matrix,
 
     dim3 const grid_dim{cute::size<2>(tiled_tensor_src),
                         cute::size<1>(tiled_tensor_src)};
-    dim3 const thread_dim{cute::size(thread_layout)};
+    dim3 const thread_dim{
+        cute::size(THREAD_BLOCK_SIZE_X::value * THREAD_BLOCK_SIZE_Y::value)};
 
     transpose_shared_memory<<<grid_dim, thread_dim, 0, stream>>>(
         tiled_tensor_src, tiled_tensor_dst_transposed,
@@ -408,7 +410,8 @@ launch_transpose_shared_memory_swizzled(T const* input_matrix, T* output_matrix,
 
     dim3 const grid_dim{cute::size<2>(tiled_tensor_src),
                         cute::size<1>(tiled_tensor_src)};
-    dim3 const thread_dim{cute::size(thread_layout)};
+    dim3 const thread_dim{
+        cute::size(THREAD_BLOCK_SIZE_X::value * THREAD_BLOCK_SIZE_Y::value)};
 
     transpose_shared_memory<<<grid_dim, thread_dim, 0, stream>>>(
         tiled_tensor_src, tiled_tensor_dst_transposed,
