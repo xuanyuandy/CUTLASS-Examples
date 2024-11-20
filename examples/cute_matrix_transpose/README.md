@@ -47,3 +47,7 @@ for file in build/examples/cute_matrix_transpose/tests/profile_*; do
     ncu --set full -f -o ncu_reports/"$filename" "$file"
 done
 ```
+
+## References
+
+- [CuTe Matrix Transpose](https://leimao.github.io/article/CuTe-Matrix-Transpose/)
