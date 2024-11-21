@@ -20,7 +20,7 @@ transpose_shared_memory(TENSOR_SRC tensor_src, TENSOR_DST tensor_dst,
                            cute::size(SHARED_MEMORY_LAYOUT_DST{}),
                        "SHARED_MEMORY_LAYOUT_SRC and SHARED_MEMORY_LAYOUT_DST "
                        "must have the same size.");
-    __shared__ Element shared_memory[cute::size(SHARED_MEMORY_LAYOUT_SRC{})];
+    __shared__ Element shared_memory[cute::cosize(SHARED_MEMORY_LAYOUT_SRC{})];
 
     auto tensor_cache_src{cute::make_tensor(cute::make_smem_ptr(shared_memory),
                                             SHARED_MEMORY_LAYOUT_SRC{})};
