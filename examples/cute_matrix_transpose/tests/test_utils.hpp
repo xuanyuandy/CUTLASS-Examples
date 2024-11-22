@@ -166,11 +166,12 @@ protected:
         CHECK_CUDA_ERROR(cudaStreamDestroy(m_stream));
     }
 
-    void RunTest(cudaError_t (*launch_transpose)(T const*, T*, unsigned int,
-                                                 unsigned int, cudaStream_t))
+    void
+    RunTest(cudaError_t (*launch_matrix_transpose)(T const*, T*, unsigned int,
+                                                   unsigned int, cudaStream_t))
     {
         // Launch the kernel.
-        CHECK_CUDA_ERROR(launch_transpose(
+        CHECK_CUDA_ERROR(launch_matrix_transpose(
             thrust::raw_pointer_cast(m_d_src.data()),
             thrust::raw_pointer_cast(m_d_dst.data()), m_M, m_N, m_stream));
 
@@ -186,8 +187,8 @@ protected:
     }
 
     void MeasurePerformance(
-        cudaError_t (*launch_transpose)(T const*, T*, unsigned int,
-                                        unsigned int, cudaStream_t),
+        cudaError_t (*launch_matrix_transpose)(T const*, T*, unsigned int,
+                                               unsigned int, cudaStream_t),
         unsigned int num_repeats = 20, unsigned int num_warmups = 20)
     {
         GTEST_COUT << "M: " << m_M << " N: " << m_N << std::endl;
@@ -207,7 +208,7 @@ protected:
         GTEST_COUT << "Peak Bandwitdh: " << peak_bandwidth << " GB/s"
                    << std::endl;
 
-        auto const function{std::bind(launch_transpose,
+        auto const function{std::bind(launch_matrix_transpose,
                                       thrust::raw_pointer_cast(m_d_src.data()),
                                       thrust::raw_pointer_cast(m_d_dst.data()),
                                       m_M, m_N, std::placeholders::_1)};
