@@ -9,12 +9,12 @@
 static std::vector<cudaError_t (*)(float const*, float*, unsigned int,
                                    unsigned int, cudaStream_t)> const
     transpose_functions{
-        launch_transpose_naive_coalesced_read<float>,
-        launch_transpose_naive_coalesced_write<float>,
-        launch_transpose_shared_memory_bank_conflict_read<float>,
-        launch_transpose_shared_memory_bank_conflict_write<float>,
-        launch_transpose_shared_memory_padded<float>,
-        launch_transpose_shared_memory_swizzled<float>};
+        launch_matrix_transpose_naive_coalesced_read<float>,
+        launch_matrix_transpose_naive_coalesced_write<float>,
+        launch_matrix_transpose_shared_memory_bank_conflict_read<float>,
+        launch_matrix_transpose_shared_memory_bank_conflict_write<float>,
+        launch_matrix_transpose_shared_memory_padded<float>,
+        launch_matrix_transpose_shared_memory_swizzled<float>};
 
 static auto const M_POWER_OF_TWO_VALUES{::testing::Values(16384)};
 static auto const N_POWER_OF_TWO_VALUES{::testing::Values(16384)};
