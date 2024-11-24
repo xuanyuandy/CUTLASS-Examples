@@ -142,10 +142,10 @@ static cudaError_t launch_matrix_transpose_naive_base(
     {
         CUTE_STATIC_ASSERT(
             TILE_SIZE_X::value % THREAD_BLOCK_SIZE_Y::value == 0,
-            "TILE_SIZE_X must be divisible by THREAD_BLOCK_SIZE_X");
+            "TILE_SIZE_X must be divisible by THREAD_BLOCK_SIZE_Y");
         CUTE_STATIC_ASSERT(
             TILE_SIZE_Y::value % THREAD_BLOCK_SIZE_X::value == 0,
-            "TILE_SIZE_Y must be divisible by THREAD_BLOCK_SIZE_Y");
+            "TILE_SIZE_Y must be divisible by THREAD_BLOCK_SIZE_X");
         matrix_transpose_naive<<<grid_dim, thread_dim, 0, stream>>>(
             tiled_tensor_src, tiled_tensor_dst_transposed,
             thread_layout_transposed);
