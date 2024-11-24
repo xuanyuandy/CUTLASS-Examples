@@ -62,17 +62,7 @@ $ cmake -B build
 $ cmake --build build --config Release --parallel
 ```
 
-### Run Examples
-
-To run the FP32 and FP16 GEMM CUDA kernels, please run the following commands.
-
-```bash
-$ ./build/examples/gemm_api_v2/CUTLASS-GEMM-API-V2
-$ ./build/examples/gemm_api_v3/CUTLASS-GEMM-API-V3
-$ ./build/examples/cute_tiled_copy/CUTE-TILED-COPY
-```
-
-### Run Unit Tests
+### Run Example Unit Tests
 
 To run the unit tests, please run the following command.
 
@@ -80,7 +70,7 @@ To run the unit tests, please run the following command.
 $ ctest --test-dir build/ --tests-regex "Test.*" --verbose
 ```
 
-### Run Performance Measurements
+### Run Example Performance Measurements
 
 To run the performance measurements, please run the following command.
 
