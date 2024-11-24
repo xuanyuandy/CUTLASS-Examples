@@ -48,6 +48,14 @@ for file in build/examples/cute_matrix_transpose/tests/profile_*; do
 done
 ```
 
+### Run Compute Sanitizer
+
+```bash
+for file in build/examples/cute_matrix_transpose/tests/test_*; do
+    compute-sanitizer --leak-check full "$file"
+done
+```
+
 ## References
 
 - [CuTe Matrix Transpose](https://leimao.github.io/article/CuTe-Matrix-Transpose/)

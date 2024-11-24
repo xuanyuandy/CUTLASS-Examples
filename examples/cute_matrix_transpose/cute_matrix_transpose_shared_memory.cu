@@ -188,8 +188,8 @@ static cudaError_t launch_matrix_transpose_shared_memory_bank_conflict_base(
 
     dim3 const grid_dim{cute::size<2>(tiled_tensor_src),
                         cute::size<1>(tiled_tensor_src)};
-    dim3 const thread_dim{
-        cute::size(THREAD_BLOCK_SIZE_X::value * THREAD_BLOCK_SIZE_Y::value)};
+    dim3 const thread_dim{THREAD_BLOCK_SIZE_X::value *
+                          THREAD_BLOCK_SIZE_Y::value};
 
     if (bank_conflict_access_mode == SharedMemoryBankConflictAccessMode::Read)
     {
@@ -306,8 +306,8 @@ cudaError_t launch_matrix_transpose_shared_memory_padded(T const* input_matrix,
 
     dim3 const grid_dim{cute::size<2>(tiled_tensor_src),
                         cute::size<1>(tiled_tensor_src)};
-    dim3 const thread_dim{
-        cute::size(THREAD_BLOCK_SIZE_X::value * THREAD_BLOCK_SIZE_Y::value)};
+    dim3 const thread_dim{THREAD_BLOCK_SIZE_X::value *
+                          THREAD_BLOCK_SIZE_Y::value};
 
     matrix_transpose_shared_memory<<<grid_dim, thread_dim, 0, stream>>>(
         tiled_tensor_src, tiled_tensor_dst_transposed,
@@ -409,8 +409,8 @@ cudaError_t launch_matrix_transpose_shared_memory_swizzled(
 
     dim3 const grid_dim{cute::size<2>(tiled_tensor_src),
                         cute::size<1>(tiled_tensor_src)};
-    dim3 const thread_dim{
-        cute::size(THREAD_BLOCK_SIZE_X::value * THREAD_BLOCK_SIZE_Y::value)};
+    dim3 const thread_dim{THREAD_BLOCK_SIZE_X::value *
+                          THREAD_BLOCK_SIZE_Y::value};
 
     matrix_transpose_shared_memory<<<grid_dim, thread_dim, 0, stream>>>(
         tiled_tensor_src, tiled_tensor_dst_transposed,
