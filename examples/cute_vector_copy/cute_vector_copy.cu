@@ -55,18 +55,12 @@ static cudaError_t launch_vector_copy(T const* input_vector, T* output_vector,
     auto const tensor_dst{cute::make_tensor(cute::make_gmem_ptr(output_vector),
                                             global_memory_layout_dst)};
 
-    cute::print(tensor_src);
-    std::cout << std::endl;
-
     using TILE_SIZE_X = cute::Int<2048>;
 
     constexpr auto block_shape{cute::make_shape(TILE_SIZE_X{})};
 
     auto const tiled_tensor_src{cute::tiled_divide(tensor_src, block_shape)};
     auto const tiled_tensor_dst{cute::tiled_divide(tensor_dst, block_shape)};
-
-    cute::print(tiled_tensor_src);
-    printf("\n");
 
     using THREAD_BLOCK_SIZE_X = cute::Int<256>;
 
