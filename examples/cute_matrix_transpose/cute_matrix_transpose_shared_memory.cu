@@ -144,12 +144,12 @@ __global__ void static matrix_transpose_shared_memory_vectorized(
     using CopyAtom = cute::Copy_Atom<cute::UniversalCopy<AccessType>, Element>;
     auto tiled_copy_src{cute::make_tiled_copy(CopyAtom{}, THREAD_LAYOUT_SRC{},
                                               VECTOR_LAYOUT{})};
-    auto thread_copy_src = tiled_copy_src.get_thread_slice(threadIdx.x);
+    auto thread_copy_src{tiled_copy_src.get_thread_slice(threadIdx.x)};
 
-    auto thread_global_tile_src = thread_copy_src.partition_S(
-        global_tile_src); // (CopyAtomShape, NumCopyTile)
-    auto thread_shared_tile_src = thread_copy_src.partition_D(
-        tensor_cache_src); // (CopyAtomShape, NumCopyTile)
+    auto thread_global_tile_src{thread_copy_src.partition_S(
+        global_tile_src)}; // (CopyAtomShape, NumCopyTile)
+    auto thread_shared_tile_src{thread_copy_src.partition_D(
+        tensor_cache_src)}; // (CopyAtomShape, NumCopyTile)
 
     auto thread_global_tile_dst{cute::local_partition(
         global_tile_dst, THREAD_LAYOUT_DST{},
@@ -812,6 +812,9 @@ static cudaError_t launch_matrix_transpose_shared_memory_vectorized_swizzled(
     auto const shared_memory_layout_dst_transposed{cute::make_layout(
         block_shape, cute::GenColMajor{})}; // (bM, bN) : (1, bM)
 
+    // Because of the vectorized access, NUM_BITS_VECTOR cannot be zero.
+    // The shared memory bank conflict mitigation can be compromised.
+    // Print the shared memory bank ids to see the details.
     auto const swizzle_src{
         cute::Swizzle<NUM_BITS_Y, NUM_BITS_VECTOR, NUM_BITS_X>{}};
     auto const shared_memory_layout_swizzled_src{
