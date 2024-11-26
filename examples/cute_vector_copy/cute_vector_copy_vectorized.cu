@@ -20,12 +20,12 @@ vector_copy_vectorized(TENSOR_SRC tensor_src, TENSOR_DST tensor_dst,
     using CopyAtom = cute::Copy_Atom<cute::UniversalCopy<AccessType>, Element>;
     auto tiled_copy{
         cute::make_tiled_copy(CopyAtom{}, THREAD_LAYOUT{}, VECTOR_LAYOUT{})};
-    auto thread_copy = tiled_copy.get_thread_slice(threadIdx.x);
+    auto thread_copy{tiled_copy.get_thread_slice(threadIdx.x)};
 
-    auto thread_tile_src = thread_copy.partition_S(
-        global_tile_src); // (CopyAtomShape, NumCopyTile)
-    auto thread_tile_dst = thread_copy.partition_D(
-        global_tile_dst); // (CopyAtomShape, NumCopyTile)
+    auto thread_tile_src{thread_copy.partition_S(
+        global_tile_src)}; // (CopyAtomShape, NumCopyTile)
+    auto thread_tile_dst{thread_copy.partition_D(
+        global_tile_dst)}; // (CopyAtomShape, NumCopyTile)
 
     auto const identity_tensor{cute::make_identity_tensor(
         cute::make_shape(cute::size(global_tile_src)))};
