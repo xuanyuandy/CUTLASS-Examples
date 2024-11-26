@@ -80,7 +80,7 @@ bool compare(T const* data, T const* ref, unsigned int size)
 
     if (!status)
     {
-        // print<T>(data, ref, size);
+        print<T>(data, ref, size);
     }
 
     return status;
