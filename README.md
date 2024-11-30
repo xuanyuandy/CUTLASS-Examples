@@ -59,7 +59,7 @@ To build the CUDA kernels, please run the following commands.
 
 ```bash
 $ cmake -B build
-$ cmake --build build --config Release --parallel
+$ NUM_CMAKE_JOBS=4 cmake --build build --config Release --parallel ${NUM_CMAKE_JOBS}
 ```
 
 ### Run Example Unit Tests

@@ -698,8 +698,9 @@ static cudaError_t launch_matrix_transpose_shared_memory_swizzled(
 
     using TILE_SIZE_X = cute::Int<64>; // bN
     using TILE_SIZE_Y = cute::Int<32>; // bM
-    constexpr int NUM_BITS_X{constexpr_log2(TILE_SIZE_X::value)};
-    constexpr int NUM_BITS_Y{constexpr_log2(TILE_SIZE_Y::value)};
+    constexpr int NUM_SHIFT_BITS{constexpr_log2(TILE_SIZE_X::value)};
+    constexpr int NUM_MASK_BITS{constexpr_log2(32)};
+    constexpr int NUM_BASE_BITS{0};
 
     constexpr auto block_shape{cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
     constexpr auto block_shape_transposed{
@@ -712,7 +713,8 @@ static cudaError_t launch_matrix_transpose_shared_memory_swizzled(
     auto const shared_memory_layout_dst_transposed{cute::make_layout(
         block_shape, cute::GenColMajor{})}; // (bM, bN) : (1, bM)
 
-    auto const swizzle_src{cute::Swizzle<NUM_BITS_Y, 0, NUM_BITS_X>{}};
+    auto const swizzle_src{
+        cute::Swizzle<NUM_MASK_BITS, NUM_BASE_BITS, NUM_SHIFT_BITS>{}};
     auto const shared_memory_layout_swizzled_src{
         cute::composition(swizzle_src, shared_memory_layout_src)};
 
@@ -797,9 +799,9 @@ static cudaError_t launch_matrix_transpose_shared_memory_vectorized_swizzled(
 
     using TILE_SIZE_X = cute::Int<128>; // bN
     using TILE_SIZE_Y = cute::Int<32>;  // bM
-    constexpr int NUM_BITS_X{constexpr_log2(TILE_SIZE_X::value)};
-    constexpr int NUM_BITS_Y{constexpr_log2(TILE_SIZE_Y::value)};
-    constexpr int NUM_BITS_VECTOR{constexpr_log2(NUM_VECTOR_ELEMENTS)};
+    constexpr int NUM_SHIFT_BITS{constexpr_log2(TILE_SIZE_X::value)};
+    constexpr int NUM_MASK_BITS{constexpr_log2(32)};
+    constexpr int NUM_BASE_BITS{constexpr_log2(NUM_VECTOR_ELEMENTS)};
 
     constexpr auto block_shape{cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
     constexpr auto block_shape_transposed{
@@ -812,11 +814,11 @@ static cudaError_t launch_matrix_transpose_shared_memory_vectorized_swizzled(
     auto const shared_memory_layout_dst_transposed{cute::make_layout(
         block_shape, cute::GenColMajor{})}; // (bM, bN) : (1, bM)
 
-    // Because of the vectorized access, NUM_BITS_VECTOR cannot be zero.
+    // Because of the vectorized access, NUM_BASE_BITS cannot be zero.
     // The shared memory bank conflict mitigation can be compromised.
     // Print the shared memory bank ids to see the details.
     auto const swizzle_src{
-        cute::Swizzle<NUM_BITS_Y, NUM_BITS_VECTOR, NUM_BITS_X>{}};
+        cute::Swizzle<NUM_MASK_BITS, NUM_BASE_BITS, NUM_SHIFT_BITS>{}};
     auto const shared_memory_layout_swizzled_src{
         cute::composition(swizzle_src, shared_memory_layout_src)};
 
