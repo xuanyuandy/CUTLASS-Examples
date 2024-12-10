@@ -64,8 +64,9 @@ int coordinate_to_index(int i, int j, int ld, bool trans)
 }
 
 template <class TA, class TB, class TC, class Alpha, class Beta>
-void gemm(char transa, char transb, int m, int n, int k, Alpha alpha,
-          TA const* A, int lda, TB const* B, int ldb, Beta beta, TC* C, int ldc)
+void gemm_cpu(char transa, char transb, int m, int n, int k, Alpha alpha,
+              TA const* A, int lda, TB const* B, int ldb, Beta beta, TC* C,
+              int ldc)
 {
     bool const transa_bool{transa == 'T' || transa == 't'};
     bool const transb_bool{transb == 'T' || transb == 't'};
@@ -117,6 +118,42 @@ constexpr cudaDataType_t cuda_data_type_trait()
     }
 }
 
+cublasComputeType_t get_compute_type(cudaDataType_t data_type_alpha,
+                                     cudaDataType data_type_beta,
+                                     cudaDataType data_type_a,
+                                     cudaDataType data_type_b,
+                                     cudaDataType data_type_c)
+{
+    if (data_type_alpha == CUDA_R_32F && data_type_beta == CUDA_R_32F &&
+        data_type_a == CUDA_R_32F && data_type_b == CUDA_R_32F &&
+        data_type_c == CUDA_R_32F)
+    {
+        return CUBLAS_COMPUTE_32F;
+    }
+    else if (data_type_alpha == CUDA_R_64F && data_type_beta == CUDA_R_64F &&
+             data_type_a == CUDA_R_64F && data_type_b == CUDA_R_64F &&
+             data_type_c == CUDA_R_64F)
+    {
+        return CUBLAS_COMPUTE_64F;
+    }
+    else if (data_type_alpha == CUDA_R_32F && data_type_beta == CUDA_R_32F &&
+             data_type_a == CUDA_R_16F && data_type_b == CUDA_R_16F &&
+             data_type_c == CUDA_R_16F)
+    {
+        return CUBLAS_COMPUTE_32F;
+    }
+    else if (data_type_alpha == CUDA_R_16F && data_type_beta == CUDA_R_16F &&
+             data_type_a == CUDA_R_16F && data_type_b == CUDA_R_16F &&
+             data_type_c == CUDA_R_16F)
+    {
+        return CUBLAS_COMPUTE_16F;
+    }
+    else
+    {
+        throw std::runtime_error("Unsupported compute type.");
+    }
+}
+
 template <class TA, class TB, class TC, class Alpha, class Beta>
 cublasStatus_t gemm_cublas(char transa, char transb, int m, int n, int k,
                            Alpha alpha, TA const* A, int lda, TB const* B,
@@ -125,16 +162,23 @@ cublasStatus_t gemm_cublas(char transa, char transb, int m, int n, int k,
 {
     // Set CUDA stream.
     CHECK_CUBLASS_ERROR(cublasSetStream(handle, stream));
+    cudaDataType_t const data_type_alpha{cuda_data_type_trait<Alpha>()};
+    cudaDataType_t const data_type_beta{cuda_data_type_trait<Beta>()};
+    cudaDataType_t const data_type_a{cuda_data_type_trait<TA>()};
+    cudaDataType_t const data_type_b{cuda_data_type_trait<TB>()};
+    cudaDataType_t const data_type_c{cuda_data_type_trait<TC>()};
+    cublasComputeType_t const compute_type{
+        get_compute_type(data_type_alpha, data_type_beta, data_type_a,
+                         data_type_b, data_type_c)};
     cublasGemmAlgo_t const algo{CUBLAS_GEMM_DEFAULT};
     cublasOperation_t const transa_cublas{
         transa == 'T' || transa == 't' ? CUBLAS_OP_T : CUBLAS_OP_N};
     cublasOperation_t const transb_cublas{
         transb == 'T' || transb == 't' ? CUBLAS_OP_T : CUBLAS_OP_N};
-    cublasStatus_t const status{cublasGemmEx(
-        handle, transa_cublas, transb_cublas, m, n, k, &alpha, A,
-        cuda_data_type_trait<TA>(), lda, B, cuda_data_type_trait<TB>(), ldb,
-        &beta, C, cuda_data_type_trait<TC>(), ldc, cuda_data_type_trait<TC>(),
-        algo)};
+    cublasStatus_t const status{
+        cublasGemmEx(handle, transa_cublas, transb_cublas, m, n, k, &alpha, A,
+                     data_type_a, lda, B, data_type_b, ldb, &beta, C,
+                     data_type_c, ldc, compute_type, algo)};
     return status;
 }
 
@@ -315,13 +359,29 @@ protected:
         random_initialize(m_h_B.data(), m_h_B.size(), b_lower_bound,
                           b_upper_bound, m_random_engine);
 
-        // Compute the reference result.
-        gemm(m_transa, m_transb, m_m, m_n, m_k, m_alpha, m_h_A.data(), m_lda,
-             m_h_B.data(), m_ldb, m_beta, m_h_C_ref.data(), m_ldc);
-
         // Copy the host vectors to the device vectors.
         m_d_A = m_h_A;
         m_d_B = m_h_B;
+
+        // Compute the reference result.
+        // Very slow on CPU for large problem sizes.
+        // gemm_cpu(m_transa, m_transb, m_m, m_n, m_k, m_alpha, m_h_A.data(),
+        //          m_lda, m_h_B.data(), m_ldb, m_beta, m_h_C_ref.data(),
+        //          m_ldc);
+
+        // Measure cuBLAS latency and compute efficiency.
+        CHECK_CUBLASS_ERROR(gemm_cublas(
+            m_transa, m_transb, m_m, m_n, m_k, m_alpha,
+            thrust::raw_pointer_cast(m_d_A.data()), m_lda,
+            thrust::raw_pointer_cast(m_d_B.data()), m_ldb, m_beta,
+            thrust::raw_pointer_cast(m_d_C.data()), m_ldc, m_handle, m_stream));
+        // Synchronize the stream.
+        CHECK_CUDA_ERROR(cudaStreamSynchronize(m_stream));
+        // Copy the data from device to host.
+        m_h_C_ref = m_d_C;
+
+        // Clean up the data on device.
+        thrust::fill(m_d_C.begin(), m_d_C.end(), static_cast<TC>(0));
     }
 
     void TearDown() override
@@ -380,7 +440,15 @@ protected:
         float const custom_kernel_latency{measure_performance<cudaError_t>(
             custom_kernel_function, m_stream, num_repeats, num_warmups)};
 
-        // Measure cuBLAS latency and compute efficiency.
+        // Make sure cuBLAS does not produce errors.
+        CHECK_CUBLASS_ERROR(gemm_cublas(
+            m_transa, m_transb, m_m, m_n, m_k, m_alpha,
+            thrust::raw_pointer_cast(m_d_A.data()), m_lda,
+            thrust::raw_pointer_cast(m_d_B.data()), m_ldb, m_beta,
+            thrust::raw_pointer_cast(m_d_C.data()), m_ldc, m_handle, m_stream));
+        // Synchronize the stream.
+        CHECK_CUDA_ERROR(cudaStreamSynchronize(m_stream));
+
         auto const cublas_function{std::bind(
             gemm_cublas<TA, TB, TC, Alpha, Beta>, m_transa, m_transb, m_m, m_n,
             m_k, m_alpha, thrust::raw_pointer_cast(m_d_A.data()), m_lda,
@@ -448,8 +516,15 @@ class TestGeneralMatrixMultiplicationDouble
 {
 };
 
-class TestGeneralMatrixMultiplicationHalf
+class TestGeneralMatrixMultiplicationHalfDataFloatCompute
     : public TestGeneralMatrixMultiplication<cutlass::half_t, cutlass::half_t,
                                              cutlass::half_t, float, float>
+{
+};
+
+class TestGeneralMatrixMultiplicationHalfDataHalfCompute
+    : public TestGeneralMatrixMultiplication<cutlass::half_t, cutlass::half_t,
+                                             cutlass::half_t, cutlass::half_t,
+                                             cutlass::half_t>
 {
 };

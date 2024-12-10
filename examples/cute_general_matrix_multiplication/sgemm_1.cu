@@ -397,6 +397,12 @@ launch_sgemm_1<cute::half_t, cute::half_t, cute::half_t, float, float>(
     char transA, char transB, int m, int n, int k, float alpha,
     cute::half_t const* A, int ldA, cute::half_t const* B, int ldB, float beta,
     cute::half_t* C, int ldC, cudaStream_t stream);
+template cudaError_t
+launch_sgemm_1<cute::half_t, cute::half_t, cute::half_t, cute::half_t,
+               cute::half_t>(char transA, char transB, int m, int n, int k,
+                             cute::half_t alpha, cute::half_t const* A, int ldA,
+                             cute::half_t const* B, int ldB, cute::half_t beta,
+                             cute::half_t* C, int ldC, cudaStream_t stream);
 
 // int main(int argc, char** argv)
 // {
