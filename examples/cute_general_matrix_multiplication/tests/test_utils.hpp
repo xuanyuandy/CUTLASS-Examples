@@ -8,6 +8,8 @@
 
 #include <cutlass/half.h>
 
+#include <cublas_v2.h>
+
 #define GTEST_COUT std::cerr << "[          ] [ INFO ] "
 
 #define CHECK_CUDA_ERROR(val) check((val), #val, __FILE__, __LINE__)
@@ -23,7 +25,7 @@ void check(cudaError_t err, char const* func, char const* file, int line)
 }
 
 #define CHECK_LAST_CUDA_ERROR() checkLast(__FILE__, __LINE__)
-void checkLast(char const* file, int const line)
+void checkLast(char const* file, int line)
 {
     cudaError_t const err{cudaGetLastError()};
     if (err != cudaSuccess)
@@ -31,6 +33,18 @@ void checkLast(char const* file, int const line)
         std::cerr << "CUDA Runtime Error at: " << file << ":" << line
                   << std::endl;
         std::cerr << cudaGetErrorString(err) << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
+}
+
+#define CHECK_CUBLASS_ERROR(val) check_cublass((val), #val, __FILE__, __LINE__)
+void check_cublass(cublasStatus_t err, char const* const func,
+                   char const* const file, int line)
+{
+    if (err != CUBLAS_STATUS_SUCCESS)
+    {
+        std::cerr << "cuBLAS Error at: " << file << ":" << line << std::endl;
+        std::cerr << cublasGetStatusString(err) << std::endl;
         std::exit(EXIT_FAILURE);
     }
 }
@@ -76,6 +90,52 @@ void gemm(char transa, char transb, int m, int n, int k, Alpha alpha,
             C[idx_c] = alpha * sum + beta * c;
         }
     }
+}
+
+template <typename T,
+          typename std::enable_if<std::is_same<T, float>::value ||
+                                      std::is_same<T, double>::value ||
+                                      std::is_same<T, cutlass::half_t>::value,
+                                  bool>::type = true>
+constexpr cudaDataType_t cuda_data_type_trait()
+{
+    if (std::is_same<T, float>::value)
+    {
+        return CUDA_R_32F;
+    }
+    else if (std::is_same<T, double>::value)
+    {
+        return CUDA_R_64F;
+    }
+    else if (std::is_same<T, cutlass::half_t>::value)
+    {
+        return CUDA_R_16F;
+    }
+    else
+    {
+        throw std::runtime_error("Unsupported data type.");
+    }
+}
+
+template <class TA, class TB, class TC, class Alpha, class Beta>
+cublasStatus_t gemm_cublas(char transa, char transb, int m, int n, int k,
+                           Alpha alpha, TA const* A, int lda, TB const* B,
+                           int ldb, Beta beta, TC* C, int ldc,
+                           cublasHandle_t handle, cudaStream_t stream)
+{
+    // Set CUDA stream.
+    CHECK_CUBLASS_ERROR(cublasSetStream(handle, stream));
+    cublasGemmAlgo_t const algo{CUBLAS_GEMM_DEFAULT};
+    cublasOperation_t const transa_cublas{
+        transa == 'T' || transa == 't' ? CUBLAS_OP_T : CUBLAS_OP_N};
+    cublasOperation_t const transb_cublas{
+        transb == 'T' || transb == 't' ? CUBLAS_OP_T : CUBLAS_OP_N};
+    cublasStatus_t const status{cublasGemmEx(
+        handle, transa_cublas, transb_cublas, m, n, k, &alpha, A,
+        cuda_data_type_trait<TA>(), lda, B, cuda_data_type_trait<TB>(), ldb,
+        &beta, C, cuda_data_type_trait<TC>(), ldc, cuda_data_type_trait<TC>(),
+        algo)};
+    return status;
 }
 
 // Initialize a data array.
@@ -175,6 +235,15 @@ float convert_latency_to_effective_bandwidth(float latency, unsigned int M,
     return bandwidth;
 }
 
+float convert_latency_to_tops(float latency, int m, int n, int k)
+{
+    size_t const num_operations{2 * static_cast<size_t>(m) *
+                                static_cast<size_t>(n) *
+                                static_cast<size_t>(k)};
+    float const tops{num_operations / (latency / 1.0e3f) / 1.0e12f};
+    return tops;
+}
+
 template <class TA, class TB, class TC, class Alpha, class Beta>
 class TestGeneralMatrixMultiplication
     : public ::testing::TestWithParam<
@@ -194,6 +263,7 @@ protected:
 
         // Create CUDA stream.
         CHECK_CUDA_ERROR(cudaStreamCreate(&m_stream));
+        CHECK_CUBLASS_ERROR(cublasCreate(&m_handle));
 
         // Get parameter.
         m_transa = std::get<0>(GetParam());
@@ -256,6 +326,8 @@ protected:
 
     void TearDown() override
     {
+        // Destroy cuBLAS handle.
+        CHECK_CUBLASS_ERROR(cublasDestroy(m_handle));
         // Destroy CUDA stream.
         CHECK_CUDA_ERROR(cudaStreamDestroy(m_stream));
     }
@@ -281,53 +353,58 @@ protected:
         ASSERT_TRUE(compare(m_h_C.data(), m_h_C_ref.data(), m_h_C.size()));
     }
 
-    // void
-    // MeasurePerformance(cudaError_t (*launch_gemm)(T const*, T*, unsigned int,
-    //                                               unsigned int,
-    //                                               cudaStream_t),
-    //                    unsigned int num_repeats = 20,
-    //                    unsigned int num_warmups = 20)
-    // {
-    //     // GTEST_COUT << "M: " << m_M << " N: " << m_N << std::endl;
+    void MeasurePerformance(
+        cudaError_t (*launch_gemm)(char, char, int, int, int, Alpha, TA const*,
+                                   int, TB const*, int, Beta, TC*, int,
+                                   cudaStream_t),
+        unsigned int num_repeats = 10, unsigned int num_warmups = 10)
+    {
+        GTEST_COUT << "m: " << m_m << " n: " << m_n << " k: " << m_k
+                   << std::endl;
 
-    //     // // Query deive name and peak memory bandwidth.
-    //     // int device_id{0};
-    //     // CHECK_CUDA_ERROR(cudaGetDevice(&device_id));
-    //     // cudaDeviceProp device_prop;
-    //     // CHECK_CUDA_ERROR(cudaGetDeviceProperties(&device_prop,
-    //     device_id));
-    //     // GTEST_COUT << "Device Name: " << device_prop.name << std::endl;
-    //     // float const
-    //     // memory_size{static_cast<float>(device_prop.totalGlobalMem) /
-    //     //                         (1 << 30)};
-    //     // GTEST_COUT << "Memory Size: " << memory_size << " GB" <<
-    //     std::endl;
-    //     // float const peak_bandwidth{
-    //     //     static_cast<float>(2.0f * device_prop.memoryClockRate *
-    //     //                        (device_prop.memoryBusWidth / 8) / 1.0e6)};
-    //     // GTEST_COUT << "Peak Bandwitdh: " << peak_bandwidth << " GB/s"
-    //     //            << std::endl;
+        // Query deive name and peak memory bandwidth.
+        int device_id{0};
+        CHECK_CUDA_ERROR(cudaGetDevice(&device_id));
+        cudaDeviceProp device_prop;
+        CHECK_CUDA_ERROR(cudaGetDeviceProperties(&device_prop, device_id));
+        GTEST_COUT << "Device Name: " << device_prop.name << std::endl;
+        float const memory_size{static_cast<float>(device_prop.totalGlobalMem) /
+                                (1 << 30)};
 
-    //     // auto const function{std::bind(launch_gemm,
-    //     // thrust::raw_pointer_cast(m_d_src.data()),
-    //     // thrust::raw_pointer_cast(m_d_dst.data()),
-    //     //                               m_M, m_N, std::placeholders::_1)};
-    //     // float const latency{measure_performance<T>(function, m_stream)};
-    //     // GTEST_COUT << "Latency: " << latency << " ms" << std::endl;
-    //     // GTEST_COUT << "Effective Bandwidth: "
-    //     //            << convert_latency_to_effective_bandwidth<T>(latency,
-    //     m_M,
-    //     //                                                         m_N)
-    //     //            << " GB/s" << std::endl;
-    //     // GTEST_COUT << "Peak Bandwidth Percentage: "
-    //     //            << 100.0f *
-    //     // convert_latency_to_effective_bandwidth<T>(latency,
-    //     //                                                             m_M,
-    //     m_N)
-    //     //                                                             /
-    //     //                   peak_bandwidth
-    //     //            << "%" << std::endl;
-    // }
+        auto const custom_kernel_function{
+            std::bind(launch_gemm, m_transa, m_transb, m_m, m_n, m_k, m_alpha,
+                      thrust::raw_pointer_cast(m_d_A.data()), m_lda,
+                      thrust::raw_pointer_cast(m_d_B.data()), m_ldb, m_beta,
+                      thrust::raw_pointer_cast(m_d_C.data()), m_ldc,
+                      std::placeholders::_1)};
+        float const custom_kernel_latency{measure_performance<cudaError_t>(
+            custom_kernel_function, m_stream, num_repeats, num_warmups)};
+
+        // Measure cuBLAS latency and compute efficiency.
+        auto const cublas_function{std::bind(
+            gemm_cublas<TA, TB, TC, Alpha, Beta>, m_transa, m_transb, m_m, m_n,
+            m_k, m_alpha, thrust::raw_pointer_cast(m_d_A.data()), m_lda,
+            thrust::raw_pointer_cast(m_d_B.data()), m_ldb, m_beta,
+            thrust::raw_pointer_cast(m_d_C.data()), m_ldc, m_handle, m_stream)};
+        float const cublas_latency{measure_performance<cublasStatus_t>(
+            cublas_function, m_stream, num_repeats, num_warmups)};
+
+        GTEST_COUT << "cuBLAS Latency: " << cublas_latency << " ms"
+                   << std::endl;
+        GTEST_COUT << "cuBLAS Compute Efficiency: "
+                   << convert_latency_to_tops(cublas_latency, m_m, m_n, m_k)
+                   << " TOPS" << std::endl;
+
+        GTEST_COUT << "Custom Kernel Latency: " << custom_kernel_latency
+                   << " ms" << std::endl;
+        GTEST_COUT << "Custom Kernel Compute Efficiency: "
+                   << convert_latency_to_tops(custom_kernel_latency, m_m, m_n,
+                                              m_k)
+                   << " TOPS" << std::endl;
+
+        GTEST_COUT << "Custom Kernel Performance VS cuBLAS Performance: "
+                   << cublas_latency / custom_kernel_latency << std::endl;
+    }
 
     char m_transa;
     char m_transb;
@@ -344,6 +421,7 @@ protected:
     Beta m_beta;
 
     cudaStream_t m_stream;
+    cublasHandle_t m_handle;
 
     thrust::host_vector<TA> m_h_A;
     thrust::host_vector<TB> m_h_B;
