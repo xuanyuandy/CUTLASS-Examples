@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.28)
+
+project(CUTE-GENERAL-MATRIX-MULTIPLICATION-TEST VERSION 0.0.1 LANGUAGES CXX CUDA)
+
+find_package(GTest REQUIRED)
+find_package(CUDAToolkit REQUIRED)
+
+find_path(CUTE_GENERAL_MATRIX_MULTIPLICATION_INCLUDE cute_general_matrix_multiplication.hpp HINTS ${CMAKE_SOURCE_DIR}/examples/cute_general_matrix_multiplication/)
+
+add_executable(test_general_matrix_multiplication test_general_matrix_multiplication.cu)
+target_include_directories(test_general_matrix_multiplication PRIVATE ${CUTE_GENERAL_MATRIX_MULTIPLICATION_INCLUDE} ${CUTLASS_INCLUDE_DIR} ${CUTLASS_UTILS_INCLUDE_DIR})
+target_link_libraries(test_general_matrix_multiplication GTest::gtest GTest::gtest_main ${CUTE_GENERAL_MATRIX_MULTIPLICATION})
+set_target_properties(test_general_matrix_multiplication PROPERTIES CUDA_ARCHITECTURES native)
+
+add_test(TestAllGeneralMatrixMultiplication test_general_matrix_multiplication)
