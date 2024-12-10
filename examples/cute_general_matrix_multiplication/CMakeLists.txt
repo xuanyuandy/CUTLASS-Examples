@@ -8,8 +8,9 @@ set(CUTE_GENERAL_MATRIX_MULTIPLICATION cute_general_matrix_multiplication)
 add_library(
     ${CUTE_GENERAL_MATRIX_MULTIPLICATION}
     SHARED
-    cute_general_matrix_multiplication.cu
+    # cute_general_matrix_multiplication.cu
     sgemm_1.cu
+    sgemm_2.cu
 )
 target_include_directories(${CUTE_GENERAL_MATRIX_MULTIPLICATION} PRIVATE ${CUTLASS_INCLUDE_DIR} ${CUTLASS_UTILS_INCLUDE_DIR})
 set_target_properties(${CUTE_GENERAL_MATRIX_MULTIPLICATION} PROPERTIES CUDA_ARCHITECTURES native)

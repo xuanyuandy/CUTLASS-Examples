@@ -7,16 +7,30 @@ find_package(CUDAToolkit REQUIRED)
 
 find_path(CUTE_GENERAL_MATRIX_MULTIPLICATION_INCLUDE cute_general_matrix_multiplication.hpp HINTS ${CMAKE_SOURCE_DIR}/examples/cute_general_matrix_multiplication/)
 
-add_executable(test_general_matrix_multiplication test_general_matrix_multiplication.cu)
-target_include_directories(test_general_matrix_multiplication PRIVATE ${CUTE_GENERAL_MATRIX_MULTIPLICATION_INCLUDE} ${CUTLASS_INCLUDE_DIR} ${CUTLASS_UTILS_INCLUDE_DIR})
-target_link_libraries(test_general_matrix_multiplication GTest::gtest GTest::gtest_main ${CUTE_GENERAL_MATRIX_MULTIPLICATION} CUDA::cublas)
-set_target_properties(test_general_matrix_multiplication PROPERTIES CUDA_ARCHITECTURES native)
+add_executable(test_sgemm_1 test_sgemm_1.cu)
+target_include_directories(test_sgemm_1 PRIVATE ${CUTE_GENERAL_MATRIX_MULTIPLICATION_INCLUDE} ${CUTLASS_INCLUDE_DIR} ${CUTLASS_UTILS_INCLUDE_DIR})
+target_link_libraries(test_sgemm_1 GTest::gtest GTest::gtest_main ${CUTE_GENERAL_MATRIX_MULTIPLICATION} CUDA::cublas)
+set_target_properties(test_sgemm_1 PROPERTIES CUDA_ARCHITECTURES native)
 
-add_test(TestAllGeneralMatrixMultiplication test_general_matrix_multiplication)
+add_test(TestAllGeneralMatrixMultiplicationSGemm1 test_sgemm_1)
 
-add_executable(profile_general_matrix_multiplication profile_general_matrix_multiplication.cu)
-target_include_directories(profile_general_matrix_multiplication PRIVATE ${CUTE_GENERAL_MATRIX_MULTIPLICATION_INCLUDE} ${CUTLASS_INCLUDE_DIR} ${CUTLASS_UTILS_INCLUDE_DIR})
-target_link_libraries(profile_general_matrix_multiplication GTest::gtest GTest::gtest_main ${CUTE_GENERAL_MATRIX_MULTIPLICATION} CUDA::cublas)
-set_target_properties(profile_general_matrix_multiplication PROPERTIES CUDA_ARCHITECTURES native)
+add_executable(profile_sgemm_1 profile_sgemm_1.cu)
+target_include_directories(profile_sgemm_1 PRIVATE ${CUTE_GENERAL_MATRIX_MULTIPLICATION_INCLUDE} ${CUTLASS_INCLUDE_DIR} ${CUTLASS_UTILS_INCLUDE_DIR})
+target_link_libraries(profile_sgemm_1 GTest::gtest GTest::gtest_main ${CUTE_GENERAL_MATRIX_MULTIPLICATION} CUDA::cublas)
+set_target_properties(profile_sgemm_1 PROPERTIES CUDA_ARCHITECTURES native)
 
-add_test(ProfileAllGeneralMatrixMultiplication profile_general_matrix_multiplication)
+add_test(ProfileAllGeneralMatrixMultiplicationSGemm1 profile_sgemm_1)
+
+add_executable(test_sgemm_2 test_sgemm_2.cu)
+target_include_directories(test_sgemm_2 PRIVATE ${CUTE_GENERAL_MATRIX_MULTIPLICATION_INCLUDE} ${CUTLASS_INCLUDE_DIR} ${CUTLASS_UTILS_INCLUDE_DIR})
+target_link_libraries(test_sgemm_2 GTest::gtest GTest::gtest_main ${CUTE_GENERAL_MATRIX_MULTIPLICATION} CUDA::cublas)
+set_target_properties(test_sgemm_2 PROPERTIES CUDA_ARCHITECTURES native)
+
+add_test(TestAllGeneralMatrixMultiplicationSGemm2 test_sgemm_2)
+
+add_executable(profile_sgemm_2 profile_sgemm_2.cu)
+target_include_directories(profile_sgemm_2 PRIVATE ${CUTE_GENERAL_MATRIX_MULTIPLICATION_INCLUDE} ${CUTLASS_INCLUDE_DIR} ${CUTLASS_UTILS_INCLUDE_DIR})
+target_link_libraries(profile_sgemm_2 GTest::gtest GTest::gtest_main ${CUTE_GENERAL_MATRIX_MULTIPLICATION} CUDA::cublas)
+set_target_properties(profile_sgemm_2 PROPERTIES CUDA_ARCHITECTURES native)
+
+add_test(ProfileAllGeneralMatrixMultiplicationSGemm2 profile_sgemm_2)
