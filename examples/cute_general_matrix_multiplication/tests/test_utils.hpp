@@ -419,7 +419,11 @@ protected:
                                    cudaStream_t),
         unsigned int num_repeats = 10, unsigned int num_warmups = 10)
     {
+        GTEST_COUT << "transa: " << m_transa << " transb: " << m_transb
+                   << std::endl;
         GTEST_COUT << "m: " << m_m << " n: " << m_n << " k: " << m_k
+                   << std::endl;
+        GTEST_COUT << "lda: " << m_lda << " ldb: " << m_ldb << " ldc: " << m_ldc
                    << std::endl;
 
         // Query deive name and peak memory bandwidth.
@@ -469,9 +473,10 @@ protected:
                    << convert_latency_to_tops(custom_kernel_latency, m_m, m_n,
                                               m_k)
                    << " TOPS" << std::endl;
-
+        // Use percentage.
         GTEST_COUT << "Custom Kernel Performance VS cuBLAS Performance: "
-                   << cublas_latency / custom_kernel_latency << std::endl;
+                   << cublas_latency / custom_kernel_latency * 100.0f << "%"
+                   << std::endl;
     }
 
     char m_transa;
