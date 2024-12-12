@@ -10,15 +10,22 @@
 
 // Modified from the official CuTe example:
 // https://github.com/NVIDIA/cutlass/blob/e1cd8c7866dd6de02b66a89879795e7d7301aacc/examples/cute/tutorial/sgemm_1.cu#L52
+// This implementation uses shared memory.
+// This implementation can have shared memory bank conflicts when copying data
+// from global memory to shared memory. This implementation does not register to
+// cache the data from shared memory for local mma. This implementation does not
+// explicitly use vectorized memory access. This implementation does not use
+// TensorCore for mma.
 template <class ProblemShape, class CtaTiler, class TA, class AStride,
           class ASmemLayout, class AThreadLayout, class TB, class BStride,
           class BSmemLayout, class BThreadLayout, class TC, class CStride,
           class CSmemLayout, class CThreadLayout, class Alpha, class Beta>
 static __global__ void general_matrix_multiplication_naive(
-    ProblemShape shape_MNK, CtaTiler cta_tiler, TA const* A, AStride dA,
-    ASmemLayout sA_layout, AThreadLayout tA, TB const* B, BStride dB,
-    BSmemLayout sB_layout, BThreadLayout tB, TC* C, CStride dC, CSmemLayout,
-    CThreadLayout tC, Alpha alpha, Beta beta)
+    ProblemShape shape_MNK, CtaTiler cta_tiler, TA const* A, AStride stride_A,
+    ASmemLayout smem_layout_A, AThreadLayout thread_layout_A, TB const* B,
+    BStride stride_B, BSmemLayout smem_layout_B, BThreadLayout thread_layout_B,
+    TC* C, CStride stride_C, CSmemLayout, CThreadLayout thread_layout_C,
+    Alpha alpha, Beta beta)
 {
     CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{}); // (M, N, K)
     CUTE_STATIC_ASSERT_V(cute::rank(cta_tiler) ==
@@ -38,13 +45,16 @@ static __global__ void general_matrix_multiplication_naive(
     // (K, N).
     //    Then A is (K, M) column-major and B is (N, K) column-major.
     //    Then A is (M, K) row-major and B is (N, K) column-major.
-    auto global_full_tensor_A{cute::make_tensor(
-        cute::make_gmem_ptr(A), cute::select<0, 2>(shape_MNK), dA)}; // (M, K)
-    auto global_full_tensor_B{cute::make_tensor(
-        cute::make_gmem_ptr(B), cute::select<1, 2>(shape_MNK), dB)}; // (N, K)
+    auto global_full_tensor_A{cute::make_tensor(cute::make_gmem_ptr(A),
+                                                cute::select<0, 2>(shape_MNK),
+                                                stride_A)}; // (M, K)
+    auto global_full_tensor_B{cute::make_tensor(cute::make_gmem_ptr(B),
+                                                cute::select<1, 2>(shape_MNK),
+                                                stride_B)}; // (N, K)
     // C is always (M, N) column-major.
-    auto global_full_tensor_C{cute::make_tensor(
-        cute::make_gmem_ptr(C), cute::select<0, 1>(shape_MNK), dC)}; // (M, N)
+    auto global_full_tensor_C{cute::make_tensor(cute::make_gmem_ptr(C),
+                                                cute::select<0, 1>(shape_MNK),
+                                                stride_C)}; // (M, N)
 
     // CTA index.
     // We used 3D index instead of 2D index because, as we will see later,
@@ -89,54 +99,64 @@ static __global__ void general_matrix_multiplication_naive(
     // sA and sB are always column-major.
     // TODO: Add static_assert to ensure the above conditions.
     auto smem_tensor_A{cute::make_tensor(cute::make_smem_ptr(smem_A),
-                                         sA_layout)}; // (BLK_M, BLK_K)
+                                         smem_layout_A)}; // (BLK_M, BLK_K)
     auto smem_tensor_B{cute::make_tensor(cute::make_smem_ptr(smem_B),
-                                         sB_layout)}; // (BLK_N, BLK_K)
+                                         smem_layout_B)}; // (BLK_N, BLK_K)
 
     // Partition the global_block_tensor_A and global_block_tensor_B across the
-    // threads using the thread layout tA and tB. Partition the smem_tensor_A
-    // and smem_tensor_B across the threads. This will be used for copying the
-    // data from global memory to shared memory for data reuse. Inner partition.
-    // This can ensure the memory access is coalesced.
+    // threads using the thread layout thread_layout_A and thread_layout_B.
+    // Partition the smem_tensor_A and smem_tensor_B across the threads. This
+    // will be used for copying the data from global memory to shared memory for
+    // data reuse. Inner partition. This can ensure the memory access is
+    // coalesced.
     auto thread_layout_A_global_block_tensor_A{cute::local_partition(
-        global_block_tensor_A, tA,
+        global_block_tensor_A, thread_layout_A,
         threadIdx.x)}; // (BLK_M / THR_M, BLK_K / THR_K, k)
     auto thread_layout_B_global_block_tensor_B{cute::local_partition(
-        global_block_tensor_B, tB,
+        global_block_tensor_B, thread_layout_B,
         threadIdx.x)}; // (BLK_N / THR_N, BLK_K / THR_K, k)
-    auto thread_layout_A_smem_tensor_A{cute::local_partition(
-        smem_tensor_A, tA, threadIdx.x)}; // (BLK_M / THR_M, BLK_K / THR_K)
-    auto thread_layout_B_smem_tensor_B{cute::local_partition(
-        smem_tensor_B, tB, threadIdx.x)}; // (BLK_N / THR_N, BLK_K / THR_K)
+    auto thread_layout_A_smem_tensor_A{
+        cute::local_partition(smem_tensor_A, thread_layout_A,
+                              threadIdx.x)}; // (BLK_M / THR_M, BLK_K / THR_K)
+    auto thread_layout_B_smem_tensor_B{
+        cute::local_partition(smem_tensor_B, thread_layout_B,
+                              threadIdx.x)}; // (BLK_N / THR_N, BLK_K / THR_K)
 
     // Partition the smem_tensor_A and smem_tensor_B across the threads using
-    // the thread layout tC. Partition the global_block_tensor_C across the
-    // threads. This will be used for the gemm computation. Inner partition.
-    // Partition the smem_tensor_A (BLK_M, BLK_K) by the rows of tC.
-    // Different threads in the same column of tC will read the same data from
-    // smem_tensor_A. With Step<_1, X>{}, the second mode in the tC layout is
-    // ignored.
+    // the thread layout thread_layout_C. Partition the global_block_tensor_C
+    // across the threads. This will be used for the gemm computation. Inner
+    // partition. Partition the smem_tensor_A (BLK_M, BLK_K) by the rows of
+    // thread_layout_C. Different threads in the same column of thread_layout_C
+    // will read the same data from smem_tensor_A. With Step<_1, X>{}, the
+    // second mode in the thread_layout_C layout is ignored.
+    // The threads in the same warp will read contiguous data from smem_tensor_A
+    // resulting in free of shared memory bank conflict.
     auto thread_layout_C_smem_tensor_A{cute::local_partition(
-        smem_tensor_A, tC, threadIdx.x,
+        smem_tensor_A, thread_layout_C, threadIdx.x,
         cute::Step<cute::Int<1>, cute::X>{})}; // (BLK_M / THR_M,
                                                // BLK_K)
-    // Partition the smem_tensor_B (BLK_N, BLK_K) by the cols of tC.
-    // Different threads in the same row of tC will read the same data from
-    // smem_tensor_B. With Step<X, _1>{}, the first mode in the tC layout is
-    // ignored.
+    // Partition the smem_tensor_B (BLK_N, BLK_K) by the cols of
+    // thread_layout_C. Different threads in the same row of thread_layout_C
+    // will read the same data from smem_tensor_B. With Step<X, _1>{}, the first
+    // mode in the thread_layout_C layout is ignored.
+    // The threads in the same warp will read the same data from the same
+    // location on smem_tensor_B resulting in a broadcast and no efficiency
+    // loss.
     auto thread_layout_C_smem_tensor_B{cute::local_partition(
-        smem_tensor_B, tC, threadIdx.x,
+        smem_tensor_B, thread_layout_C, threadIdx.x,
         cute::Step<cute::X, cute::Int<1>>{})}; // (BLK_N / THR_N,
                                                // BLK_K)
-    // Partition the global_block_tensor_C (BLK_M, BLK_N) by the tile of tC.
+    // Partition the global_block_tensor_C (BLK_M, BLK_N) by the tile of
+    // thread_layout_C.
     auto thread_layout_C_global_block_tensor_C{cute::local_partition(
-        global_block_tensor_C, tC, threadIdx.x,
+        global_block_tensor_C, thread_layout_C, threadIdx.x,
         cute::Step<cute::Int<1>, cute::Int<1>>{})}; // (BLK_M / THR_M, BLK_N /
                                                     // THR_N)
     // This is the same as the above.
-    // auto thread_layout_C_global_block_tensor_C{cute::local_partition(
-    //     global_block_tensor_C, tC, threadIdx.x)}; // (BLK_M / THR_M, BLK_N /
-    //     THR_N)
+    // auto thread_layout_C_global_block_tensor_C{
+    //     cute::local_partition(global_block_tensor_C, thread_layout_C,
+    //                           threadIdx.x)}; // (BLK_M / THR_M, BLK_N /
+    //                           THR_N)
 
     // Allocate the accumulators.
     // The layout is automatically compacted to the smallest possible layout to
@@ -153,7 +173,16 @@ static __global__ void general_matrix_multiplication_naive(
 
     for (auto tile_idx_k{0}; tile_idx_k < num_tiles_k; ++tile_idx_k)
     {
+        // Clear the shared memory buffers.
+        // This is necessary when predicates are used for copying data from
+        // global memory to shared memory so that mma will not be affected by
+        // the previous data in the unwanted region.
+        cute::clear(thread_layout_A_smem_tensor_A);
+        cute::clear(thread_layout_B_smem_tensor_B);
+
         // Copy the data from global memory to shared memory for data reuse.
+        // This is the only place where shared memory bank conflicts can happen,
+        // depending on the tensor layouts on the global memory.
         // Copy the data from global_block_tensor_A to smem_tensor_A.
         cute::copy(
             thread_layout_A_global_block_tensor_A(cute::_, cute::_, tile_idx_k),
@@ -170,24 +199,24 @@ static __global__ void general_matrix_multiplication_naive(
         cute::cp_async_wait<0>();
         __syncthreads();
 
-        // Compute gemm on tC thread-partitioned smem.
-        // This uses the Universal FMA GEMM atom.
-        //   using MMA = MMA_Atom<UniversalFMA<typename
-        //   Tensor<TD,DLayout>::value_type,
-        //                                 typename
-        //                                 Tensor<TA,ALayout>::value_type,
-        //                                 typename
-        //                                 Tensor<TB,BLayout>::value_type,
-        //                                 typename
-        //                                 Tensor<TC,CLayout>::value_type>>;
-
-        //   return gemm(MMA{}, D, A, B, C);
-        // TODO: Use atom to define the gemm computation.
+        // Compute gemm on thread_layout_C thread-partitioned smem.
+        // This implicitly uses the UniversalFMA GEMM atom.
         cute::gemm(thread_layout_C_smem_tensor_A, thread_layout_C_smem_tensor_B,
                    thread_layout_C_register_tensor_C); // (BLK_M / THR_M, BLK_N
                                                        // / THR_N) += (BLK_M /
                                                        // THR_M, BLK_K) * (BLK_N
                                                        // / THR_N, BLK_K)
+        // This is equivalent to the above.
+        // auto mma_atom{cute::MMA_Atom<cute::UniversalFMA<TC, TA, TB, TC>>{}};
+        // cute::gemm(mma_atom, thread_layout_C_smem_tensor_A,
+        //            thread_layout_C_smem_tensor_B,
+        //            thread_layout_C_register_tensor_C); // (BLK_M / THR_M,
+        //            BLK_N
+        //                                                // / THR_N) += (BLK_M
+        //                                                /
+        //                                                // THR_M, BLK_K) *
+        //                                                (BLK_N
+        //                                                // / THR_N, BLK_K)
 
         __syncthreads();
     }

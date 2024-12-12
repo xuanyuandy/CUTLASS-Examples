@@ -396,6 +396,9 @@ protected:
                                             TA const*, int, TB const*, int,
                                             Beta, TC*, int, cudaStream_t))
     {
+        // Clean up the data on device.
+        thrust::fill(m_d_C.begin(), m_d_C.end(), static_cast<TC>(0));
+
         // Launch the kernel.
         CHECK_CUDA_ERROR(launch_gemm(
             m_transa, m_transb, m_m, m_n, m_k, m_alpha,
