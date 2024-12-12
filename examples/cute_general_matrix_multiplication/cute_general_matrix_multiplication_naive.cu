@@ -168,6 +168,72 @@ static __global__ void general_matrix_multiplication_naive(
     // Clear the accumulators.
     cute::clear(thread_layout_C_register_tensor_C);
 
+    // Create predicate tensors.
+    auto thread_layout_A_predicate_tensor_A{cute::make_tensor<bool>(
+        cute::make_shape(cute::size<0>(thread_layout_A_global_block_tensor_A),
+                         cute::size<1>(thread_layout_A_global_block_tensor_A)),
+        cute::make_stride(cute::Int<1>{}, cute::Int<0>{}))};
+    auto thread_layout_B_predicate_tensor_B{cute::make_tensor<bool>(
+        cute::make_shape(cute::size<0>(thread_layout_B_global_block_tensor_B),
+                         cute::size<1>(thread_layout_B_global_block_tensor_B)),
+        cute::make_stride(cute::Int<1>{}, cute::Int<0>{}))};
+    auto thread_layout_C_predicate_tensor_C{cute::make_tensor<bool>(
+        cute::make_shape(cute::size<0>(thread_layout_C_global_block_tensor_C),
+                         cute::size<1>(thread_layout_C_global_block_tensor_C)),
+        cute::make_stride(
+            cute::Int<1>{},
+            cute::size<0>(thread_layout_C_global_block_tensor_C)))};
+    // Create identity tensors.
+    auto identity_tensor_A{cute::make_identity_tensor(cute::make_shape(
+        cute::size<0>(smem_tensor_A), cute::size<1>(smem_tensor_A)))};
+    auto identity_tensor_B{cute::make_identity_tensor(cute::make_shape(
+        cute::size<0>(smem_tensor_B), cute::size<1>(smem_tensor_B)))};
+    auto identity_tensor_C{cute::make_identity_tensor(
+        cute::make_shape(cute::size<0>(global_block_tensor_C),
+                         cute::size<1>(global_block_tensor_C)))};
+    auto thread_layout_A_identity_tensor_A{
+        cute::local_partition(identity_tensor_A, thread_layout_A,
+                              threadIdx.x)}; // (BLK_M / THR_M, BLK_K / THR_K)
+    auto thread_layout_B_identity_tensor_B{
+        cute::local_partition(identity_tensor_B, thread_layout_B,
+                              threadIdx.x)}; // (BLK_N / THR_N, BLK_K / THR_K)
+    auto thread_layout_C_identity_tensor_C{
+        cute::local_partition(identity_tensor_C, thread_layout_C,
+                              threadIdx.x)}; // (BLK_M / THR_M, BLK_N / THR_N)
+
+    CUTE_UNROLL
+    for (auto m{0}; m < cute::size<0>(thread_layout_A_predicate_tensor_A); ++m)
+    {
+        thread_layout_A_predicate_tensor_A(m, 0) =
+            cute::get<0>(thread_layout_A_identity_tensor_A(m, 0)) +
+                blockIdx.x * cute::size<0>(smem_tensor_A) <
+            cute::size<0>(shape_MNK);
+    }
+    CUTE_UNROLL
+    for (auto n{0}; n < cute::size<0>(thread_layout_B_predicate_tensor_B); ++n)
+    {
+        thread_layout_B_predicate_tensor_B(n, 0) =
+            cute::get<0>(thread_layout_B_identity_tensor_B(n, 0)) +
+                blockIdx.y * cute::size<0>(smem_tensor_B) <
+            cute::size<1>(shape_MNK);
+    }
+    CUTE_UNROLL
+    for (auto m{0}; m < cute::size<0>(thread_layout_C_predicate_tensor_C); ++m)
+    {
+        CUTE_UNROLL
+        for (auto n{0}; n < cute::size<1>(thread_layout_C_predicate_tensor_C);
+             ++n)
+        {
+            thread_layout_C_predicate_tensor_C(m, n) =
+                cute::get<0>(thread_layout_C_identity_tensor_C(m, n)) +
+                        blockIdx.x * cute::size<0>(global_block_tensor_C) <
+                    cute::size<0>(shape_MNK) &&
+                cute::get<1>(thread_layout_C_identity_tensor_C(m, n)) +
+                        blockIdx.y * cute::size<1>(global_block_tensor_C) <
+                    cute::size<1>(shape_MNK);
+        }
+    }
+
     // Perform the gemm computation loop.
     auto const num_tiles_k{cute::size<2>(global_block_tensor_A)}; // k
 
@@ -180,19 +246,53 @@ static __global__ void general_matrix_multiplication_naive(
         cute::clear(thread_layout_A_smem_tensor_A);
         cute::clear(thread_layout_B_smem_tensor_B);
 
-        // Copy the data from global memory to shared memory for data reuse.
-        // This is the only place where shared memory bank conflicts can happen,
-        // depending on the tensor layouts on the global memory.
-        // Copy the data from global_block_tensor_A to smem_tensor_A.
-        cute::copy(
-            thread_layout_A_global_block_tensor_A(cute::_, cute::_, tile_idx_k),
-            thread_layout_A_smem_tensor_A); // (BLK_M / THR_M, BLK_K / THR_K) ->
-                                            // (BLK_M / THR_M, BLK_K / THR_K)
-        // Copy the data from global_block_tensor_B to smem_tensor_B.
-        cute::copy(
-            thread_layout_B_global_block_tensor_B(cute::_, cute::_, tile_idx_k),
-            thread_layout_B_smem_tensor_B); // (BLK_N / THR_N, BLK_K / THR_K) ->
-                                            // (BLK_N / THR_N, BLK_K / THR_K)
+        CUTE_UNROLL
+        for (auto k{0};
+             k < cute::size<1>(thread_layout_A_global_block_tensor_A); ++k)
+        {
+            // Check the K dimension.
+            if (cute::get<1>(thread_layout_A_identity_tensor_A(0, k)) +
+                    tile_idx_k * cute::size<1>(smem_tensor_A) <
+                cute::size<2>(shape_MNK))
+            {
+                cute::copy_if(thread_layout_A_predicate_tensor_A,
+                              thread_layout_A_global_block_tensor_A(cute::_, k,
+                                                                    tile_idx_k),
+                              thread_layout_A_smem_tensor_A(cute::_, k));
+            }
+        }
+        CUTE_UNROLL
+        for (auto k{0};
+             k < cute::size<1>(thread_layout_B_global_block_tensor_B); ++k)
+        {
+            // Check the K dimension.
+            if (cute::get<1>(thread_layout_B_identity_tensor_B(0, k)) +
+                    tile_idx_k * cute::size<1>(smem_tensor_B) <
+                cute::size<2>(shape_MNK))
+            {
+                cute::copy_if(thread_layout_B_predicate_tensor_B,
+                              thread_layout_B_global_block_tensor_B(cute::_, k,
+                                                                    tile_idx_k),
+                              thread_layout_B_smem_tensor_B(cute::_, k));
+            }
+        }
+
+        // // Copy the data from global memory to shared memory for data reuse.
+        // // This is the only place where shared memory bank conflicts can
+        // happen,
+        // // depending on the tensor layouts on the global memory.
+        // // Copy the data from global_block_tensor_A to smem_tensor_A.
+        // cute::copy(
+        //     thread_layout_A_global_block_tensor_A(cute::_, cute::_,
+        //     tile_idx_k), thread_layout_A_smem_tensor_A); // (BLK_M / THR_M,
+        //     BLK_K / THR_K) ->
+        //                                     // (BLK_M / THR_M, BLK_K / THR_K)
+        // // Copy the data from global_block_tensor_B to smem_tensor_B.
+        // cute::copy(
+        //     thread_layout_B_global_block_tensor_B(cute::_, cute::_,
+        //     tile_idx_k), thread_layout_B_smem_tensor_B); // (BLK_N / THR_N,
+        //     BLK_K / THR_K) ->
+        //                                     // (BLK_N / THR_N, BLK_K / THR_K)
 
         // Synchronize the threads to ensure the data copy is completed.
         cute::cp_async_fence();
@@ -223,13 +323,17 @@ static __global__ void general_matrix_multiplication_naive(
 
     // Scale and accumulate the result from the register tensor to the global
     // block tensor.
-    cute::axpby(
-        alpha, thread_layout_C_register_tensor_C, beta,
-        thread_layout_C_global_block_tensor_C); // (BLK_M / THR_M, BLK_N /
-                                                // THR_N) = alpha * (BLK_M /
-                                                // THR_M, BLK_N / THR_N) + beta
-                                                // * (BLK_M / THR_M, BLK_N /
-                                                // THR_N)
+    // cute::axpby(
+    //     alpha, thread_layout_C_register_tensor_C, beta,
+    //     thread_layout_C_global_block_tensor_C); // (BLK_M / THR_M, BLK_N /
+    //                                             // THR_N) = alpha * (BLK_M /
+    //                                             // THR_M, BLK_N / THR_N) +
+    //                                             beta
+    //                                             // * (BLK_M / THR_M, BLK_N /
+    //                                             // THR_N)
+    cute::axpby(alpha, thread_layout_C_register_tensor_C, beta,
+                thread_layout_C_global_block_tensor_C,
+                thread_layout_C_predicate_tensor_C);
 }
 
 template <class TA, class TB, class TC, class Alpha, class Beta, class AStride,
