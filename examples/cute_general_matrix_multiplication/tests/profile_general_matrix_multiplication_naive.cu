@@ -30,11 +30,11 @@ TEST_P(TestGeneralMatrixMultiplicationFloat,
     MeasurePerformance(LAUNCH_GENERAL_MATRIX_MULTIPLICATION_FLOAT);
 }
 
-// TEST_P(TestGeneralMatrixMultiplicationDouble,
-//        TestGeneralMatrixMultiplicationDouble)
-// {
-//     MeasurePerformance(LAUNCH_GENERAL_MATRIX_MULTIPLICATION_DOUBLE);
-// }
+TEST_P(TestGeneralMatrixMultiplicationDouble,
+       TestGeneralMatrixMultiplicationDouble)
+{
+    MeasurePerformance(LAUNCH_GENERAL_MATRIX_MULTIPLICATION_DOUBLE);
+}
 
 TEST_P(TestGeneralMatrixMultiplicationHalfDataFloatCompute,
        TestGeneralMatrixMultiplicationHalfDataFloatCompute)
@@ -56,12 +56,12 @@ INSTANTIATE_TEST_SUITE_P(TestGeneralMatrixMultiplicationLimited,
                                             M_VALUES, N_VALUES, K_VALUES,
                                             LDA_VALUES, LDB_VALUES,
                                             LDC_VALUES));
-// INSTANTIATE_TEST_SUITE_P(TestGeneralMatrixMultiplicationLimited,
-//                          TestGeneralMatrixMultiplicationDouble,
-//                          ::testing::Combine(TRANS_A_VALUES, TRANS_B_VALUES,
-//                                             M_VALUES, N_VALUES, K_VALUES,
-//                                             LDA_VALUES, LDB_VALUES,
-//                                             LDC_VALUES));
+INSTANTIATE_TEST_SUITE_P(TestGeneralMatrixMultiplicationLimited,
+                         TestGeneralMatrixMultiplicationDouble,
+                         ::testing::Combine(TRANS_A_VALUES, TRANS_B_VALUES,
+                                            M_VALUES, N_VALUES, K_VALUES,
+                                            LDA_VALUES, LDB_VALUES,
+                                            LDC_VALUES));
 INSTANTIATE_TEST_SUITE_P(TestGeneralMatrixMultiplicationLimited,
                          TestGeneralMatrixMultiplicationHalfDataFloatCompute,
                          ::testing::Combine(TRANS_A_VALUES, TRANS_B_VALUES,

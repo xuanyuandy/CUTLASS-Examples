@@ -278,9 +278,11 @@ static void gemm_nt(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
                          cute::size(thread_layout_C));
 
     // Launch the kernel.
-    dim3 const block_dims{static_cast<unsigned int>(cute::size(thread_layout_C))};
-    dim3 const grid_dims{static_cast<unsigned int>(cute::size(cute::ceil_div(M, bM))),
-                         static_cast<unsigned int>(cute::size(cute::ceil_div(N, bN)))};
+    dim3 const block_dims{
+        static_cast<unsigned int>(cute::size(thread_layout_C))};
+    dim3 const grid_dims{
+        static_cast<unsigned int>(cute::size(cute::ceil_div(M, bM))),
+        static_cast<unsigned int>(cute::size(cute::ceil_div(N, bN)))};
     general_matrix_multiplication_naive<<<grid_dims, block_dims, 0, stream>>>(
         gemm_shape, cta_tiler, A, stride_A, smem_layout_A, thread_layout_A, B,
         stride_B, smem_layout_B, thread_layout_B, C, stride_C, smem_layout_C,
