@@ -89,6 +89,9 @@ __global__ static __launch_bounds__(decltype(size(
     static_assert(is_static<BSmemLayout>::value);
     static_assert(is_static<CSmemLayout>::value);
 
+    // ASmemLayout: (BLK_M, BLK_K)
+    // BSmemLayout: (BLK_N, BLK_K)
+    // CSmemLayout: (BLK_M, BLK_N)
     CUTE_STATIC_ASSERT_V(size<0>(ASmemLayout{}) == size<0>(cta_tiler)); // BLK_M
     CUTE_STATIC_ASSERT_V(size<0>(CSmemLayout{}) == size<0>(cta_tiler)); // BLK_M
     CUTE_STATIC_ASSERT_V(size<0>(BSmemLayout{}) == size<1>(cta_tiler)); // BLK_N
@@ -116,17 +119,37 @@ __global__ static __launch_bounds__(decltype(size(
         make_tensor(make_gmem_ptr(C), select<0, 1>(shape_MNK), dC); // (M,N)
 
     // Get the appropriate blocks for this thread block
-    auto cta_coord = make_coord(blockIdx.x, blockIdx.y, _); // (m,n,k)
+    // cta_coord: (m, n, :)
+    auto cta_coord = make_coord(blockIdx.x, blockIdx.y, _); // (m,n,:)
+    // cta_tiler: (BLK_M, BLK_N, BLK_K)
+    // With Step<_1, X, _1>{}, the second mode in the cta tiler is ignored, thus
+    // the tiler becomes (BLK_M, BLK_K) In addition, because the the second mode
+    // is ignored, the cta_coord becomes (m, :) The resulting local_tile is
+    // (BLK_M, BLK_K, k) where BLK_K * k = K.
     Tensor gA = local_tile(mA, cta_tiler, cta_coord,
                            Step<_1, X, _1>{}); // (BLK_M,BLK_K,k)
+    // With Step<X, _1, _1>{}, the first mode in the cta tiler is ignored, thus
+    // the tiler becomes (BLK_N, BLK_K) In addition, because the the first mode
+    // is ignored, the cta_coord becomes (n, :) The resulting local_tile is
+    // (BLK_N, BLK_K, k) where BLK_K * k = K.
     Tensor gB = local_tile(mB, cta_tiler, cta_coord,
                            Step<X, _1, _1>{}); // (BLK_N,BLK_K,k)
+    // With Step<_1, _1, X>{}, the third mode in the cta tiler is ignored, thus
+    // the tiler becomes (BLK_M, BLK_N) In addition, because the the third mode
+    // is ignored, the cta_coord becomes (m, n) The resulting local_tile is
+    // (BLK_M, BLK_N).
     Tensor gC = local_tile(mC, cta_tiler, cta_coord,
                            Step<_1, _1, X>{}); // (BLK_M,BLK_N)
 
     // Shared memory buffers
     __shared__ TA smemA[cosize_v<ASmemLayout>];
     __shared__ TB smemB[cosize_v<BSmemLayout>];
+    // sA and sB can be column major or row major.
+    // Whether it is column major or row major depends on the gA and gB layout.
+    // If gA is column major, then sA is column major.
+    // If gA is row major, then sA is row major.
+    // If gB is column major, then sB is column major.
+    // If gB is row major, then sB is row major.
     Tensor sA = make_tensor(make_smem_ptr(smemA), sA_layout); // (BLK_M,BLK_K)
     Tensor sB = make_tensor(make_smem_ptr(smemB), sB_layout); // (BLK_N,BLK_K)
 
@@ -154,10 +177,20 @@ __global__ static __launch_bounds__(decltype(size(
 
     // TUTORIAL: Example of partitioning via projections of a ThreadLayout tC
 
+    // Each thread needs to read some data from A and B, depending on its
+    // coordinates in tC.
+
     // Partition sA (M,K) by the rows of tC
+    // Different threads in the same column of tC will read the same data from
+    // sA. Because of the Step<_1, X>{} projection, the second mode in the tC
+    // layout is ignored.
+
     Tensor tCsA =
         local_partition(sA, tC, threadIdx.x, Step<_1, X>{}); // (THR_M,BLK_K)
     // Partition sB (N,K) by the cols of tC
+    // Different threads in the same row of tC will read the same data from sB.
+    // Because of the Step<X, _1>{} projection, the first mode in the tC layout
+    // is ignored.
     Tensor tCsB =
         local_partition(sB, tC, threadIdx.x, Step<X, _1>{}); // (THR_N,BLK_K)
     // Partition gC (M,N) by the tile of tC
@@ -165,7 +198,10 @@ __global__ static __launch_bounds__(decltype(size(
         local_partition(gC, tC, threadIdx.x, Step<_1, _1>{}); // (THR_M,THR_N)
 
     // Allocate the accumulators -- same shape/layout as the partitioned data
+    // The layout is automatically compacted to the smallest possible layout to
+    // avoid unnecessary memory/register usage.
     Tensor tCrC = make_tensor_like(tCgC); // (THR_M,THR_N)
+    // auto tCrC = make_fragment_like(tCgC); // (THR_M,(THR_N))
 
     CUTE_STATIC_ASSERT_V(size<0>(tCrC) == size<0>(tCgC)); // THR_M
     CUTE_STATIC_ASSERT_V(size<0>(tCrC) == size<0>(tCsA)); // THR_M
@@ -176,36 +212,68 @@ __global__ static __launch_bounds__(decltype(size(
     // Clear the accumulators
     clear(tCrC);
 
-#if 0
-  if(thread0()) {
-    print("  mA : "); print(  mA); print("\n");
-    print("  gA : "); print(  gA); print("\n");
-    print("  sA : "); print(  sA); print("\n");
-    print("tAgA : "); print(tAgA); print("\n");
-    print("tAsA : "); print(tAsA); print("\n");
-  }
-#endif
+    // if (thread0())
+    // {
+    //     print("cta_coord:");
+    //     print(cta_coord);
+    //     print("\n");
+    //     print("  mA : ");
+    //     print(mA);
+    //     print("\n");
+    //     print("  gA : ");
+    //     print(gA);
+    //     print("\n");
+    //     print("  sA : ");
+    //     print(sA);
+    //     print("\n");
+    //     print("tAgA : ");
+    //     print(tAgA);
+    //     print("\n");
+    //     print("tAsA : ");
+    //     print(tAsA);
+    //     print("\n");
+    // }
 
-#if 0
-  if(thread0()) {
-    print("  mB : "); print(  mB); print("\n");
-    print("  gB : "); print(  gB); print("\n");
-    print("  sB : "); print(  sB); print("\n");
-    print("tBgB : "); print(tBgB); print("\n");
-    print("tBsB : "); print(tBsB); print("\n");
-  }
-#endif
+    // if (thread0())
+    // {
+    //     print("  mB : ");
+    //     print(mB);
+    //     print("\n");
+    //     print("  gB : ");
+    //     print(gB);
+    //     print("\n");
+    //     print("  sB : ");
+    //     print(sB);
+    //     print("\n");
+    //     print("tBgB : ");
+    //     print(tBgB);
+    //     print("\n");
+    //     print("tBsB : ");
+    //     print(tBsB);
+    //     print("\n");
+    // }
 
-#if 0
-  if(thread0()) {
-    print("  mC : "); print(  mC); print("\n");
-    print("  gC : "); print(  gC); print("\n");
-    print("tCsA : "); print(tCsA); print("\n");
-    print("tCsB : "); print(tCsB); print("\n");
-    print("tCgC : "); print(tCgC); print("\n");
-    print("tCrC : "); print(tCrC); print("\n");
-  }
-#endif
+    // if (thread0())
+    // {
+    //     print("  mC : ");
+    //     print(mC);
+    //     print("\n");
+    //     print("  gC : ");
+    //     print(gC);
+    //     print("\n");
+    //     print("tCsA : ");
+    //     print(tCsA);
+    //     print("\n");
+    //     print("tCsB : ");
+    //     print(tCsB);
+    //     print("\n");
+    //     print("tCgC : ");
+    //     print(tCgC);
+    //     print("\n");
+    //     print("tCrC : ");
+    //     print(tCrC);
+    //     print("\n");
+    // }
 
 #if 1
 
@@ -380,6 +448,27 @@ cudaError_t launch_sgemm_1(char transA, char transB, int m, int n, int k,
     {
         assert(false && "Not implemented");
     }
+
+    // auto test_layout = cute::make_layout(cute::make_shape(cute::Int<8>{},
+    //                                                       cute::Int<8>{}),
+    //                                                       cute::make_stride(cute::Int<16>{},
+    //                                                       cute::Int<16384>{}));
+    // auto test_layout_like = cute::make_layout_like(test_layout);
+    // auto test_tensor = cute::make_tensor(cute::make_gmem_ptr(A),
+    // test_layout); auto test_tensor_like =
+    // cute::make_tensor_like(test_tensor); std::cout << "test_layout: ";
+    // cute::print(test_layout);
+    // std::cout << std::endl;
+    // std::cout << "test_layout_like: ";
+    // cute::print(test_layout_like);
+    // std::cout << std::endl;
+    // std::cout << "test_tensor: ";
+    // cute::print(test_tensor);
+    // std::cout << std::endl;
+    // std::cout << "test_tensor_like: ";
+    // cute::print(test_tensor_like);
+    // std::cout << std::endl;
+
     return cudaGetLastError();
 }
 
