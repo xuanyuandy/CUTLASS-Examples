@@ -31,6 +31,69 @@ static __global__ void general_matrix_multiplication_naive(
     CUTE_STATIC_ASSERT_V(cute::rank(cta_tiler) ==
                          cute::Int<3>{}); // (BLK_M, BLK_N, BLK_K)
 
+    // Thread layouts have to be static.
+    CUTE_STATIC_ASSERT_V(cute::is_static<AThreadLayout>{});
+    CUTE_STATIC_ASSERT_V(cute::is_static<BThreadLayout>{});
+    CUTE_STATIC_ASSERT_V(cute::is_static<CThreadLayout>{});
+
+    // Different thread layouts have to have the same number of threads.
+    CUTE_STATIC_ASSERT_V(cute::size(thread_layout_A) ==
+                         cute::size(thread_layout_B));
+    CUTE_STATIC_ASSERT_V(cute::size(thread_layout_A) ==
+                         cute::size(thread_layout_C));
+
+    // CTA tiler has to be static.
+    CUTE_STATIC_ASSERT_V(cute::is_static<CtaTiler>{});
+
+    // CTA tiler has to be divisible by the thread layouts.
+    CUTE_STATIC_ASSERT_V(cute::size<0>(cta_tiler) %
+                             cute::size<0>(thread_layout_A) ==
+                         cute::Int<0>{}); // BLK_M % THR_M == 0
+    CUTE_STATIC_ASSERT_V(cute::size<2>(cta_tiler) %
+                             cute::size<1>(thread_layout_A) ==
+                         cute::Int<0>{}); // BLK_K % THR_K == 0
+    CUTE_STATIC_ASSERT_V(cute::size<1>(cta_tiler) %
+                             cute::size<0>(thread_layout_B) ==
+                         cute::Int<0>{}); // BLK_N % THR_N == 0
+    CUTE_STATIC_ASSERT_V(cute::size<2>(cta_tiler) %
+                             cute::size<1>(thread_layout_B) ==
+                         cute::Int<0>{}); // BLK_K % THR_K == 0
+    CUTE_STATIC_ASSERT_V(cute::size<0>(cta_tiler) %
+                             cute::size<0>(thread_layout_C) ==
+                         cute::Int<0>{}); // BLK_M % THR_M == 0
+    CUTE_STATIC_ASSERT_V(cute::size<1>(cta_tiler) %
+                             cute::size<1>(thread_layout_C) ==
+                         cute::Int<0>{}); // BLK_N % THR_N == 0
+
+    // Shared memory layouts have to be static.
+    CUTE_STATIC_ASSERT_V(cute::is_static<ASmemLayout>{});
+    CUTE_STATIC_ASSERT_V(cute::is_static<BSmemLayout>{});
+    CUTE_STATIC_ASSERT_V(cute::is_static<CSmemLayout>{});
+
+    // Shared memory layouts have to match CTA tiler.
+    CUTE_STATIC_ASSERT_V(cute::size<0>(smem_layout_A) ==
+                         cute::size<0>(cta_tiler)); // BLK_M
+    CUTE_STATIC_ASSERT_V(cute::size<1>(smem_layout_A) ==
+                         cute::size<2>(cta_tiler)); // BLK_K
+    CUTE_STATIC_ASSERT_V(cute::size<0>(smem_layout_B) ==
+                         cute::size<1>(cta_tiler)); // BLK_N
+    CUTE_STATIC_ASSERT_V(cute::size<1>(smem_layout_B) ==
+                         cute::size<2>(cta_tiler)); // BLK_K
+
+    // Shared memory layouts have to be divisible by the thread layouts.
+    CUTE_STATIC_ASSERT_V(cute::size<0>(smem_layout_A) %
+                             cute::size<0>(thread_layout_A) ==
+                         cute::Int<0>{}); // BLK_M % THR_M == 0
+    CUTE_STATIC_ASSERT_V(cute::size<1>(smem_layout_A) %
+                             cute::size<1>(thread_layout_A) ==
+                         cute::Int<0>{}); // BLK_K % THR_K == 0
+    CUTE_STATIC_ASSERT_V(cute::size<0>(smem_layout_B) %
+                             cute::size<0>(thread_layout_B) ==
+                         cute::Int<0>{}); // BLK_N % THR_N == 0
+    CUTE_STATIC_ASSERT_V(cute::size<1>(smem_layout_B) %
+                             cute::size<1>(thread_layout_B) ==
+                         cute::Int<0>{}); // BLK_K % THR_K == 0
+
     // Full tensor.
     // There are four scenarios for the full tensor.
     // 1. The shape of A is (M, K) and the shape of B is (K, N).
@@ -122,6 +185,19 @@ static __global__ void general_matrix_multiplication_naive(
         cute::local_partition(smem_tensor_B, thread_layout_B,
                               threadIdx.x)}; // (BLK_N / THR_N, BLK_K / THR_K)
 
+    CUTE_STATIC_ASSERT_V(
+        cute::size<0>(thread_layout_A_global_block_tensor_A) ==
+        cute::size<0>(thread_layout_A_smem_tensor_A)); // BLK_M / THR_M
+    CUTE_STATIC_ASSERT_V(
+        cute::size<1>(thread_layout_A_global_block_tensor_A) ==
+        cute::size<1>(thread_layout_A_smem_tensor_A)); // BLK_K / THR_K
+    CUTE_STATIC_ASSERT_V(
+        cute::size<0>(thread_layout_B_global_block_tensor_B) ==
+        cute::size<0>(thread_layout_B_smem_tensor_B)); // BLK_N / THR_N
+    CUTE_STATIC_ASSERT_V(
+        cute::size<1>(thread_layout_B_global_block_tensor_B) ==
+        cute::size<1>(thread_layout_B_smem_tensor_B)); // BLK_K / THR_K
+
     // Partition the smem_tensor_A and smem_tensor_B across the threads using
     // the thread layout thread_layout_C. Partition the global_block_tensor_C
     // across the threads. This will be used for the gemm computation. Inner
@@ -164,6 +240,19 @@ static __global__ void general_matrix_multiplication_naive(
     auto thread_layout_C_register_tensor_C{cute::make_tensor_like(
         thread_layout_C_global_block_tensor_C)}; // (BLK_M / THR_M, BLK_N /
                                                  // THR_N)
+
+    CUTE_STATIC_ASSERT_V(
+        cute::size<0>(thread_layout_C_smem_tensor_A) ==
+        cute::size<0>(thread_layout_C_register_tensor_C)); // BLK_M / THR_M
+    CUTE_STATIC_ASSERT_V(
+        cute::size<0>(thread_layout_C_smem_tensor_B) ==
+        cute::size<1>(thread_layout_C_register_tensor_C)); // BLK_N / THR_N
+    CUTE_STATIC_ASSERT_V(
+        cute::size<0>(thread_layout_C_global_block_tensor_C) ==
+        cute::size<0>(thread_layout_C_register_tensor_C)); // BLK_M / THR_M
+    CUTE_STATIC_ASSERT_V(
+        cute::size<1>(thread_layout_C_global_block_tensor_C) ==
+        cute::size<1>(thread_layout_C_register_tensor_C)); // BLK_N / THR_N
 
     // Clear the accumulators.
     cute::clear(thread_layout_C_register_tensor_C);
