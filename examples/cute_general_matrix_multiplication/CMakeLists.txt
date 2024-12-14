@@ -9,7 +9,7 @@ add_library(
     ${CUTE_GENERAL_MATRIX_MULTIPLICATION}
     SHARED
     cute_general_matrix_multiplication_naive.cu
-    cute_general_matrix_multiplication_naive_vectorized.cu
+    cute_general_matrix_multiplication_naive_tiled_copy.cu
     sgemm_1.cu
     sgemm_2.cu
 )
