@@ -427,10 +427,10 @@ static __global__ void general_matrix_multiplication_naive(
 
 template <class TA, class TB, class TC, class Alpha, class Beta, class AStride,
           class BStride, class CStride>
-static void gemm_base(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
-                      TB const* B, int ldB, Beta beta, TC* C, int ldC,
-                      AStride stride_A, BStride stride_B, CStride stride_C,
-                      cudaStream_t stream)
+static cudaError_t gemm_base(int m, int n, int k, Alpha alpha, TA const* A,
+                             int ldA, TB const* B, int ldB, Beta beta, TC* C,
+                             int ldC, AStride stride_A, BStride stride_B,
+                             CStride stride_C, cudaStream_t stream)
 {
     // Define GEMM shape.
     auto const M{m};
@@ -498,15 +498,17 @@ static void gemm_base(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
         gemm_shape, cta_tiler, A, stride_A, smem_layout_A, thread_layout_A, B,
         stride_B, smem_layout_B, thread_layout_B, C, stride_C, smem_layout_C,
         thread_layout_C, alpha, beta);
+
+    return cudaGetLastError();
 }
 
 // The shape of A is (M, K) and the shape of B is (K, N).
 // Then A is (M, K) column-major and B is (K, N) column-major.
 // Then A is (M, K) column-major and B is (N, K) row-major.
 template <class TA, class TB, class TC, class Alpha, class Beta>
-static void gemm_nn(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
-                    TB const* B, int ldB, Beta beta, TC* C, int ldC,
-                    cudaStream_t stream)
+static cudaError_t gemm_nn(int m, int n, int k, Alpha alpha, TA const* A,
+                           int ldA, TB const* B, int ldB, Beta beta, TC* C,
+                           int ldC, cudaStream_t stream)
 {
     // Define global memory layouts.
     // A is (M, K) column-major.
@@ -516,8 +518,8 @@ static void gemm_nn(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
     // C is (M, N) column-major.
     auto const stride_C{cute::make_stride(cute::Int<1>{}, ldC)}; // column-major
 
-    gemm_base(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A, stride_B,
-              stride_C, stream);
+    return gemm_base(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A,
+                     stride_B, stride_C, stream);
 }
 
 // The shape of A is (M, K) and the shape of transposed B is (K, N).
@@ -525,9 +527,9 @@ static void gemm_nn(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
 // The smem_A is (BLK_M, BLK_K) column-major and smem_B is (BLK_N, BLK_K)
 // column-major.
 template <class TA, class TB, class TC, class Alpha, class Beta>
-static void gemm_nt(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
-                    TB const* B, int ldB, Beta beta, TC* C, int ldC,
-                    cudaStream_t stream)
+static cudaError_t gemm_nt(int m, int n, int k, Alpha alpha, TA const* A,
+                           int ldA, TB const* B, int ldB, Beta beta, TC* C,
+                           int ldC, cudaStream_t stream)
 {
     // Define global memory layouts.
     // A is (M, K) column-major.
@@ -537,17 +539,17 @@ static void gemm_nt(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
     // C is (M, N) column-major.
     auto const stride_C{cute::make_stride(cute::Int<1>{}, ldC)}; // column-major
 
-    gemm_base(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A, stride_B,
-              stride_C, stream);
+    return gemm_base(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A,
+                     stride_B, stride_C, stream);
 }
 
 // The shape of transposed A is (M, K) and the shape of B is (K, N).
 // Then A is (K, M) column-major and B is (K, N) column-major.
 // Then A is (M, K) row-major and B is (N, K) row-major.
 template <class TA, class TB, class TC, class Alpha, class Beta>
-static void gemm_tn(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
-                    TB const* B, int ldB, Beta beta, TC* C, int ldC,
-                    cudaStream_t stream)
+static cudaError_t gemm_tn(int m, int n, int k, Alpha alpha, TA const* A,
+                           int ldA, TB const* B, int ldB, Beta beta, TC* C,
+                           int ldC, cudaStream_t stream)
 {
     // Define global memory layouts.
     // A is (M, K) row-major.
@@ -557,17 +559,17 @@ static void gemm_tn(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
     // C is (M, N) column-major.
     auto const stride_C{cute::make_stride(cute::Int<1>{}, ldC)}; // column-major
 
-    gemm_base(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A, stride_B,
-              stride_C, stream);
+    return gemm_base(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A,
+                     stride_B, stride_C, stream);
 }
 
 // The shape of transposed A is (M, K) and the shape of transposed B is (K, N).
 //    Then A is (K, M) column-major and B is (N, K) column-major.
 //    Then A is (M, K) row-major and B is (N, K) column-major.
 template <class TA, class TB, class TC, class Alpha, class Beta>
-static void gemm_tt(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
-                    TB const* B, int ldB, Beta beta, TC* C, int ldC,
-                    cudaStream_t stream)
+static cudaError_t gemm_tt(int m, int n, int k, Alpha alpha, TA const* A,
+                           int ldA, TB const* B, int ldB, Beta beta, TC* C,
+                           int ldC, cudaStream_t stream)
 {
     // Define global memory layouts.
     // A is (M, K) row-major.
@@ -577,8 +579,8 @@ static void gemm_tt(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
     // C is (M, N) column-major.
     auto const stride_C{cute::make_stride(cute::Int<1>{}, ldC)}; // column-major
 
-    gemm_base(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A, stride_B,
-              stride_C, stream);
+    return gemm_base(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A,
+                     stride_B, stride_C, stream);
 }
 
 template <class TA, class TB, class TC, class Alpha, class Beta>
@@ -589,25 +591,24 @@ cudaError_t launch_gemm_naive(char transA, char transB, int m, int n, int k,
 {
     if (transA == 'N' && transB == 'T')
     {
-        gemm_nt(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
+        return gemm_nt(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
     }
     else if (transA == 'N' && transB == 'N')
     {
-        gemm_nn(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
+        return gemm_nn(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
     }
     else if (transA == 'T' && transB == 'N')
     {
-        gemm_tn(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
+        return gemm_tn(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
     }
     else if (transA == 'T' && transB == 'T')
     {
-        gemm_tt(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
+        return gemm_tt(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
     }
     else
     {
         return cudaErrorNotSupported;
     }
-    return cudaGetLastError();
 }
 
 // Explicit instantiation
