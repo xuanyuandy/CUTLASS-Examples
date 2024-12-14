@@ -13,18 +13,19 @@ constexpr int constexpr_log2(int n)
     return ((n < 2) ? 0 : 1 + constexpr_log2(n / 2));
 }
 
-// Tiled copy can allow vectorized memory access and improve kernel performance.
+// Tiled mma allows creating more sophisticated tiling schemes.
+// But currently I am not sure if it can improve the performance.
 template <class ProblemShape, class CtaTiler, class TA, class AStride,
           class ASmemLayout, class AThreadLayout, class TiledCopyA, class TB,
           class BStride, class BSmemLayout, class BThreadLayout,
           class TiledCopyB, class TC, class CStride, class CSmemLayout,
-          class CThreadLayout, class Alpha, class Beta>
-static __global__ void general_matrix_multiplication_naive_tiled_copy(
+          class CThreadLayout, class TiledMMA, class Alpha, class Beta>
+static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
     ProblemShape shape_MNK, CtaTiler cta_tiler, TA const* A, AStride stride_A,
     ASmemLayout smem_layout_A, AThreadLayout, TiledCopyA copy_A, TB const* B,
     BStride stride_B, BSmemLayout smem_layout_B, BThreadLayout,
     TiledCopyB copy_B, TC* C, CStride stride_C, CSmemLayout,
-    CThreadLayout thread_layout_C, Alpha alpha, Beta beta)
+    CThreadLayout thread_layout_C, TiledMMA mma, Alpha alpha, Beta beta)
 {
     CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{}); // (M, N, K)
     CUTE_STATIC_ASSERT_V(cute::rank(cta_tiler) ==
@@ -458,6 +459,9 @@ static cudaError_t gemm_base_tiled_copy(int m, int n, int k, Alpha alpha,
             (cute::size<0>(thread_layout_B) * cute::size<0>(vector_layout_B)) ==
         cute::Int<0>{}); // BLK_N % (THR_N * NUM_VECTOR_ELEMENTS_B) == 0
 
+    auto mma{cute::make_tiled_mma(cute::UniversalFMA<TA, TB, TC>{},
+                                  thread_layout_C)};
+
     // Swizzle parameters.
     constexpr int NUM_SHIFT_BITS_A{constexpr_log2(bM)};
     constexpr int NUM_MASK_BITS_A{constexpr_log2(32)};
@@ -487,12 +491,12 @@ static cudaError_t gemm_base_tiled_copy(int m, int n, int k, Alpha alpha,
     dim3 const grid_dims{
         static_cast<unsigned int>(cute::size(cute::ceil_div(M, bM))),
         static_cast<unsigned int>(cute::size(cute::ceil_div(N, bN)))};
-    general_matrix_multiplication_naive_tiled_copy<<<grid_dims, block_dims, 0,
-                                                     stream>>>(
+    general_matrix_multiplication_naive_tiled_copy_tiled_mma<<<
+        grid_dims, block_dims, 0, stream>>>(
         gemm_shape, cta_tiler, A, stride_A, smem_layout_A_swizzled,
         thread_layout_A, copy_A, B, stride_B, smem_layout_B_swizzled,
         thread_layout_B, copy_B, C, stride_C, smem_layout_C, thread_layout_C,
-        alpha, beta);
+        mma, alpha, beta);
 
     return cudaGetLastError();
 }
@@ -614,11 +618,11 @@ static cudaError_t gemm_tt(int m, int n, int k, Alpha alpha, TA const* A,
 }
 
 template <class TA, class TB, class TC, class Alpha, class Beta>
-cudaError_t launch_gemm_naive_tiled_copy(char transA, char transB, int m, int n,
-                                         int k, Alpha alpha, TA const* A,
-                                         int ldA, TB const* B, int ldB,
-                                         Beta beta, TC* C, int ldC,
-                                         cudaStream_t stream)
+cudaError_t
+launch_gemm_naive_tiled_copy_tiled_mma(char transA, char transB, int m, int n,
+                                       int k, Alpha alpha, TA const* A, int ldA,
+                                       TB const* B, int ldB, Beta beta, TC* C,
+                                       int ldC, cudaStream_t stream)
 {
     // To ensure vectorized memory access, the values of m, n, and k are
     // constrained to be:
@@ -666,23 +670,24 @@ cudaError_t launch_gemm_naive_tiled_copy(char transA, char transB, int m, int n,
 
 // Explicit instantiation
 template cudaError_t
-launch_gemm_naive_tiled_copy<float, float, float, float, float>(
+launch_gemm_naive_tiled_copy_tiled_mma<float, float, float, float, float>(
     char transA, char transB, int m, int n, int k, float alpha, float const* A,
     int ldA, float const* B, int ldB, float beta, float* C, int ldC,
     cudaStream_t stream);
 template cudaError_t
-launch_gemm_naive_tiled_copy<double, double, double, double, double>(
+launch_gemm_naive_tiled_copy_tiled_mma<double, double, double, double, double>(
     char transA, char transB, int m, int n, int k, double alpha,
     double const* A, int ldA, double const* B, int ldB, double beta, double* C,
     int ldC, cudaStream_t stream);
-template cudaError_t launch_gemm_naive_tiled_copy<cute::half_t, cute::half_t,
-                                                  cute::half_t, float, float>(
+template cudaError_t
+launch_gemm_naive_tiled_copy_tiled_mma<cute::half_t, cute::half_t, cute::half_t,
+                                       float, float>(
     char transA, char transB, int m, int n, int k, float alpha,
     cute::half_t const* A, int ldA, cute::half_t const* B, int ldB, float beta,
     cute::half_t* C, int ldC, cudaStream_t stream);
 template cudaError_t
-launch_gemm_naive_tiled_copy<cute::half_t, cute::half_t, cute::half_t,
-                             cute::half_t, cute::half_t>(
+launch_gemm_naive_tiled_copy_tiled_mma<cute::half_t, cute::half_t, cute::half_t,
+                                       cute::half_t, cute::half_t>(
     char transA, char transB, int m, int n, int k, cute::half_t alpha,
     cute::half_t const* A, int ldA, cute::half_t const* B, int ldB,
     cute::half_t beta, cute::half_t* C, int ldC, cudaStream_t stream);
