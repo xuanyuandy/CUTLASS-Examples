@@ -19,9 +19,9 @@ static auto const LAUNCH_GENERAL_MATRIX_MULTIPLICATION_HALF_DATA_HALF_COMPUTE{
 
 static auto const TRANS_A_VALUES{::testing::Values('T', 'N')};
 static auto const TRANS_B_VALUES{::testing::Values('T', 'N')};
-static auto const M_VALUES{::testing::Values(512)};
-static auto const N_VALUES{::testing::Values(512)};
-static auto const K_VALUES{::testing::Values(512)};
+static auto const M_VALUES{::testing::Values(256, 448, 512)};
+static auto const N_VALUES{::testing::Values(256, 448, 512)};
+static auto const K_VALUES{::testing::Values(256, 448, 512)};
 static auto const LDA_VALUES{::testing::Values(512)};
 static auto const LDB_VALUES{::testing::Values(512)};
 static auto const LDC_VALUES{::testing::Values(512)};

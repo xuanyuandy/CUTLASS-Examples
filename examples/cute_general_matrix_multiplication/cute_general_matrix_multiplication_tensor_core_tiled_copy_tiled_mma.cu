@@ -640,27 +640,28 @@ cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma(
     }
 }
 
-// Explicit instantiation
-template cudaError_t
-launch_gemm_tensor_core_tiled_copy_tiled_mma<float, float, float, float, float>(
-    char transA, char transB, int m, int n, int k, float alpha, float const* A,
-    int ldA, float const* B, int ldB, float beta, float* C, int ldC,
-    cudaStream_t stream);
-template cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma<
-    double, double, double, double, double>(char transA, char transB, int m,
-                                            int n, int k, double alpha,
-                                            double const* A, int ldA,
-                                            double const* B, int ldB,
-                                            double beta, double* C, int ldC,
-                                            cudaStream_t stream);
+// // Explicit instantiation
+// template cudaError_t
+// launch_gemm_tensor_core_tiled_copy_tiled_mma<float, float, float, float,
+// float>(
+//     char transA, char transB, int m, int n, int k, float alpha, float const*
+//     A, int ldA, float const* B, int ldB, float beta, float* C, int ldC,
+//     cudaStream_t stream);
+// template cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma<
+//     double, double, double, double, double>(char transA, char transB, int m,
+//                                             int n, int k, double alpha,
+//                                             double const* A, int ldA,
+//                                             double const* B, int ldB,
+//                                             double beta, double* C, int ldC,
+//                                             cudaStream_t stream);
 template cudaError_t
 launch_gemm_tensor_core_tiled_copy_tiled_mma<cute::half_t, cute::half_t,
                                              cute::half_t, float, float>(
     char transA, char transB, int m, int n, int k, float alpha,
     cute::half_t const* A, int ldA, cute::half_t const* B, int ldB, float beta,
     cute::half_t* C, int ldC, cudaStream_t stream);
-template cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma<
-    cute::half_t, cute::half_t, cute::half_t, cute::half_t, cute::half_t>(
-    char transA, char transB, int m, int n, int k, cute::half_t alpha,
-    cute::half_t const* A, int ldA, cute::half_t const* B, int ldB,
-    cute::half_t beta, cute::half_t* C, int ldC, cudaStream_t stream);
+// template cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma<
+//     cute::half_t, cute::half_t, cute::half_t, cute::half_t, cute::half_t>(
+//     char transA, char transB, int m, int n, int k, cute::half_t alpha,
+//     cute::half_t const* A, int ldA, cute::half_t const* B, int ldB,
+//     cute::half_t beta, cute::half_t* C, int ldC, cudaStream_t stream);
