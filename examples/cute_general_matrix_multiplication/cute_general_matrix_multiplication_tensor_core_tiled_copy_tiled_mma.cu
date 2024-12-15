@@ -150,7 +150,7 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
     // Allocate the accumulators.
     // The layout is automatically compacted to the smallest possible layout to
     // avoid unnecessary memory/register usage.
-    auto thread_layout_C_register_tensor_C{cute::make_tensor_like(
+    auto thread_layout_C_register_tensor_C{cute::make_fragment_like(
         thread_layout_C_global_block_tensor_C)}; // (MMA, MMA_M, MMA_N)
 
     CUTE_STATIC_ASSERT_V(
@@ -169,27 +169,6 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
     // Clear the accumulators.
     cute::clear(thread_layout_C_register_tensor_C);
 
-    // Create predicate tensors.
-    // To simplify the implementation a little bit, we used 2D predicate tensors
-    // which can take a little bit more register space.
-    auto thread_layout_A_predicate_tensor_A{cute::make_tensor<bool>(
-        cute::make_shape(cute::size<1>(thread_layout_A_global_block_tensor_A),
-                         cute::size<2>(thread_layout_A_global_block_tensor_A)),
-        cute::make_stride(
-            cute::Int<1>{},
-            cute::size<1>(thread_layout_A_global_block_tensor_A)))};
-    auto thread_layout_B_predicate_tensor_B{cute::make_tensor<bool>(
-        cute::make_shape(cute::size<1>(thread_layout_B_global_block_tensor_B),
-                         cute::size<2>(thread_layout_B_global_block_tensor_B)),
-        cute::make_stride(
-            cute::Int<1>{},
-            cute::size<1>(thread_layout_B_global_block_tensor_B)))};
-    auto thread_layout_C_predicate_tensor_C{cute::make_tensor<bool>(
-        cute::make_shape(cute::size<1>(thread_layout_C_global_block_tensor_C),
-                         cute::size<2>(thread_layout_C_global_block_tensor_C)),
-        cute::make_stride(
-            cute::Int<1>{},
-            cute::size<1>(thread_layout_C_global_block_tensor_C)))};
     // Create identity tensors.
     auto identity_tensor_A{cute::make_identity_tensor(cute::make_shape(
         cute::size<0>(smem_tensor_A), cute::size<1>(smem_tensor_A)))};
@@ -203,8 +182,16 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
     auto thread_layout_B_identity_tensor_B{
         thread_copy_B.partition_S(identity_tensor_B)}; // (CPY, CPY_N, CPY_K)
     auto thread_layout_C_identity_tensor_C{
-        cute::local_partition(identity_tensor_C, thread_layout_C,
-                              threadIdx.x)}; // (BLK_M / THR_M, BLK_N / THR_N)
+        thread_mma.partition_C(identity_tensor_C)}; // (MMA, MMA_M, MMA_N)
+    // Create predicate tensors.
+    auto thread_layout_A_predicate_tensor_A{cute::make_tensor<bool>(
+        cute::make_shape(cute::size<1>(thread_layout_A_identity_tensor_A),
+                         cute::size<2>(thread_layout_A_identity_tensor_A)))};
+    auto thread_layout_B_predicate_tensor_B{cute::make_tensor<bool>(
+        cute::make_shape(cute::size<1>(thread_layout_B_identity_tensor_B),
+                         cute::size<2>(thread_layout_B_identity_tensor_B)))};
+    auto thread_layout_C_predicate_tensor_C{cute::make_tensor<bool>(
+        cute::shape(thread_layout_C_identity_tensor_C))};
 
     CUTE_UNROLL
     for (auto m{0}; m < cute::size<0>(thread_layout_A_predicate_tensor_A); ++m)
@@ -237,20 +224,15 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
         }
     }
     CUTE_UNROLL
-    for (auto m{0}; m < cute::size<0>(thread_layout_C_predicate_tensor_C); ++m)
+    for (auto i{0}; i < cute::size(thread_layout_C_predicate_tensor_C); ++i)
     {
-        CUTE_UNROLL
-        for (auto n{0}; n < cute::size<1>(thread_layout_C_predicate_tensor_C);
-             ++n)
-        {
-            thread_layout_C_predicate_tensor_C(m, n) =
-                cute::get<0>(thread_layout_C_identity_tensor_C(m, n)) +
-                        blockIdx.x * cute::size<0>(global_block_tensor_C) <
-                    cute::size<0>(shape_MNK) &&
-                cute::get<1>(thread_layout_C_identity_tensor_C(m, n)) +
-                        blockIdx.y * cute::size<1>(global_block_tensor_C) <
-                    cute::size<1>(shape_MNK);
-        }
+        thread_layout_C_predicate_tensor_C(i) =
+            cute::get<0>(thread_layout_C_identity_tensor_C(i)) +
+                    blockIdx.x * cute::size<0>(global_block_tensor_C) <
+                cute::size<0>(shape_MNK) &&
+            cute::get<1>(thread_layout_C_identity_tensor_C(i)) +
+                    blockIdx.y * cute::size<1>(global_block_tensor_C) <
+                cute::size<1>(shape_MNK);
     }
 
     // Perform the gemm computation loop.
@@ -281,7 +263,8 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
 
         // Compute gemm on thread_layout_C thread-partitioned smem.
         // This implicitly uses the UniversalFMA GEMM atom.
-        cute::gemm(thread_layout_C_smem_tensor_A, thread_layout_C_smem_tensor_B,
+        cute::gemm(mma, thread_layout_C_smem_tensor_A,
+                   thread_layout_C_smem_tensor_B,
                    thread_layout_C_register_tensor_C); // (BLK_M / THR_M, BLK_N
                                                        // / THR_N) += (BLK_M /
                                                        // THR_M, BLK_K) * (BLK_N
@@ -315,7 +298,7 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
     // Define CTA size.
     auto const bM{cute::Int<128 * 4 / sizeof(TA)>{}};
     auto const bN{cute::Int<128 * 4 / sizeof(TB)>{}};
-    auto const bK{cute::Int<8>{}};
+    auto const bK{cute::Int<32>{}};
     auto const cta_tiler{cute::make_shape(bM, bN, bK)}; // (BLK_M, BLK_N, BLK_K)
 
     // Define smem layouts.
@@ -432,8 +415,29 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
             (cute::size<0>(thread_layout_B) * cute::size<0>(vector_layout_B)) ==
         cute::Int<0>{}); // BLK_N % (THR_N * NUM_VECTOR_ELEMENTS_B) == 0
 
-    auto mma{cute::make_tiled_mma(cute::UniversalFMA<TA, TB, TC>{},
-                                  thread_layout_C)};
+    // Somehow using SM70 Tensor Core MMA is much slower than using
+    // UniversalFMA. Configure SM70 Tensor Core MMA. auto
+    // mma_atom{cute::MMA_Atom<cute::SM70_8x8x4_F16F16F16F16_NT>{}}; auto
+    // mma_layout{cute::make_layout(
+    //     cute::make_shape(cute::Int<8>{}, cute::Int<4>{}),
+    //     cute::make_stride(cute::Int<4>{}, cute::Int<1>{}))};
+    // auto mma{cute::make_tiled_mma(mma_atom, mma_layout)};
+
+    // auto mma{cute::make_tiled_mma(cute::UniversalFMA<TA, TB, TC>{},
+    //                               thread_layout_C)};
+
+    // Configure SM80 Tensor Core MMA.
+    auto mma_atom{cute::MMA_Atom<cute::SM80_16x8x16_F16F16F16F16_TN>{}};
+    auto mma_layout{
+        cute::make_layout(cute::make_shape(cute::Int<4>{}, cute::Int<2>{}),
+                          cute::make_stride(cute::Int<1>{}, cute::Int<4>{}))};
+    auto mma{cute::make_tiled_mma(mma_atom, mma_layout)};
+
+    CUTE_STATIC_ASSERT_V(cute::size(mma) == cute::size(thread_layout_C));
+    // Static assert types because of the MMA instruction.
+    CUTE_STATIC_ASSERT(std::is_same_v<TA, cute::half_t>);
+    CUTE_STATIC_ASSERT(std::is_same_v<TB, cute::half_t>);
+    CUTE_STATIC_ASSERT(std::is_same_v<TC, cute::half_t>);
 
     // Swizzle parameters.
     constexpr int NUM_SHIFT_BITS_A{constexpr_log2(bM)};
@@ -640,28 +644,15 @@ cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma(
     }
 }
 
-// // Explicit instantiation
-// template cudaError_t
-// launch_gemm_tensor_core_tiled_copy_tiled_mma<float, float, float, float,
-// float>(
-//     char transA, char transB, int m, int n, int k, float alpha, float const*
-//     A, int ldA, float const* B, int ldB, float beta, float* C, int ldC,
-//     cudaStream_t stream);
-// template cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma<
-//     double, double, double, double, double>(char transA, char transB, int m,
-//                                             int n, int k, double alpha,
-//                                             double const* A, int ldA,
-//                                             double const* B, int ldB,
-//                                             double beta, double* C, int ldC,
-//                                             cudaStream_t stream);
+// Explicit instantiation
 template cudaError_t
 launch_gemm_tensor_core_tiled_copy_tiled_mma<cute::half_t, cute::half_t,
                                              cute::half_t, float, float>(
     char transA, char transB, int m, int n, int k, float alpha,
     cute::half_t const* A, int ldA, cute::half_t const* B, int ldB, float beta,
     cute::half_t* C, int ldC, cudaStream_t stream);
-// template cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma<
-//     cute::half_t, cute::half_t, cute::half_t, cute::half_t, cute::half_t>(
-//     char transA, char transB, int m, int n, int k, cute::half_t alpha,
-//     cute::half_t const* A, int ldA, cute::half_t const* B, int ldB,
-//     cute::half_t beta, cute::half_t* C, int ldC, cudaStream_t stream);
+template cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma<
+    cute::half_t, cute::half_t, cute::half_t, cute::half_t, cute::half_t>(
+    char transA, char transB, int m, int n, int k, cute::half_t alpha,
+    cute::half_t const* A, int ldA, cute::half_t const* B, int ldB,
+    cute::half_t beta, cute::half_t* C, int ldC, cudaStream_t stream);

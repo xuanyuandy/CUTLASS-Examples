@@ -19,4 +19,10 @@ target_include_directories(${CUTE_GENERAL_MATRIX_MULTIPLICATION} PRIVATE ${CUTLA
 set_target_properties(${CUTE_GENERAL_MATRIX_MULTIPLICATION} PROPERTIES CUDA_ARCHITECTURES native)
 target_compile_options(${CUTE_GENERAL_MATRIX_MULTIPLICATION} PRIVATE --expt-relaxed-constexpr)
 
+add_executable(sgemm_reed_simple sgemm_reed_simple.cu)
+target_include_directories(sgemm_reed_simple PRIVATE ${CUTLASS_INCLUDE_DIR} ${CUTLASS_UTILS_INCLUDE_DIR})
+target_link_libraries(sgemm_reed_simple CUDA::cublas)
+set_target_properties(sgemm_reed_simple PROPERTIES CUDA_ARCHITECTURES native)
+target_compile_options(sgemm_reed_simple PRIVATE --expt-relaxed-constexpr)
+
 add_subdirectory(tests)

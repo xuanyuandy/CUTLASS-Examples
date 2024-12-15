@@ -152,7 +152,8 @@ __global__ static __launch_bounds__(decltype(size(
     Tensor tCgC = thr_mma.partition_C(gC); // (MMA,MMA_M,MMA_N)
 
     // Allocate the accumulators -- same size as the projected data
-    Tensor tCrC = thr_mma.make_fragment_C(tCgC); // (MMA,MMA_M,MMA_N)
+    // Tensor tCrC = thr_mma.make_fragment_C(tCgC); // (MMA,MMA_M,MMA_N)
+    Tensor tCrC = make_fragment_like(tCgC); // (MMA,MMA_M,MMA_N)
 
     CUTE_STATIC_ASSERT_V(shape(tCrC) == shape(tCgC));     // (MMA,MMA_M,MMA_N)
     CUTE_STATIC_ASSERT_V(size<1>(tCgC) == size<1>(tCsA)); // MMA_M
@@ -272,9 +273,9 @@ static void gemm_nt(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
     auto dC = make_stride(Int<1>{}, ldC); // (dM, dN)
 
     // Define CTA tile sizes (static)
-    auto bM = Int<128>{};
-    auto bN = Int<128>{};
-    auto bK = Int<8>{};
+    auto bM = Int<128 * 4 / sizeof(TA)>{};
+    auto bN = Int<128 * 4 / sizeof(TB)>{};
+    auto bK = Int<32>{};
     auto cta_tiler = make_shape(bM, bN, bK); // (BLK_M, BLK_N, BLK_K)
 
     // Define the smem layouts (static)
@@ -292,11 +293,13 @@ static void gemm_nt(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
     TiledCopy copyA =
         make_tiled_copy(Copy_Atom<UniversalCopy<uint128_t>, TA>{},
                         Layout<Shape<_32, _8>>{}, // Thr layout 32x8 m-major
-                        Layout<Shape<_4, _1>>{}); // Val layout  4x1 m-major
+                        Layout<Shape<cute::Int<sizeof(uint128_t) / sizeof(TA)>,
+                                     _1>>{}); // Val layout  4x1 m-major
     TiledCopy copyB =
         make_tiled_copy(Copy_Atom<UniversalCopy<uint128_t>, TB>{},
                         Layout<Shape<_32, _8>>{}, // Thr layout 32x8 n-major
-                        Layout<Shape<_4, _1>>{}); // Val layout  4x1 n-major
+                        Layout<Shape<cute::Int<sizeof(uint128_t) / sizeof(TB)>,
+                                     _1>>{}); // Val layout  4x1 n-major
 
     // TUTORIAL: Construct TiledMMA with a particular MMA_Atom to use and
     //           define the partitioning pattern to apply.
@@ -304,9 +307,38 @@ static void gemm_nt(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
     // thread. Reproduce that atom 16x16x1 times (m-major) across threads so
     // that we use 256 threads.
 
-    TiledMMA mmaC =
-        make_tiled_mma(UniversalFMA<TC, TA, TB>{},
-                       Layout<Shape<_16, _16, _1>>{}); // 16x16x1 UniversalFMA
+    // TiledMMA mmaC =
+    //     make_tiled_mma(UniversalFMA<TC, TA, TB>{},
+    //                    Layout<Shape<_16, _16, _1>>{}); // 16x16x1
+    //                    UniversalFMA
+
+    // TiledMMA mmaC = make_tiled_mma(SM70_8x8x4_F16F16F16F16_NT{},
+    //                               Layout<Shape <_4,_8>,
+    //                                      Stride<_1,_4>>{});   // 2x2 n-major
+    //                                      layout of Atoms
+
+    // TiledMMA mmaC = make_tiled_mma(SM70_8x8x4_F16F16F16F16_NT{},
+    //                               Layout<Shape <_4,_8>, Stride<_1,_4>>{},
+    //                               Layout<Shape <_2,_2>>{});   // 2x2 n-major
+    //                               layout of Atoms
+
+    // TiledMMA mmaC = make_tiled_mma(SM70_8x8x4_F32F16F16F32_NT{},
+    //                               Layout<Shape <_4,_8>,
+    //                                      Stride<_1,_4>>{});   // 2x2 n-major
+    //                                      layout of Atoms
+
+    using mma_op = SM80_16x8x16_F16F16F16F16_TN;
+    using mma_traits = MMA_Traits<mma_op>;
+    using mma_atom = MMA_Atom<mma_traits>;
+
+    // using MMA = decltype(make_tiled_mma(mma_atom{},
+    //                     make_layout(Shape<_4, _2, _1>{}),
+    //                     make_layout(Shape<_1, _2, _1>{})));
+
+    using MMA =
+        decltype(make_tiled_mma(mma_atom{}, make_layout(Shape<_4, _2, _1>{})));
+
+    TiledMMA mmaC = MMA{};
 
 #if 0
   print(copyA);
@@ -416,10 +448,10 @@ cudaError_t launch_sgemm_2(char transA, char transB, int m, int n, int k,
     {
         gemm_nt(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
     }
-    else if (transA == 'T' && transB == 'N')
-    {
-        gemm_tn(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
-    }
+    // else if (transA == 'T' && transB == 'N')
+    // {
+    //     gemm_tn(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
+    // }
     else
     {
         assert(false && "Not implemented");
@@ -428,23 +460,22 @@ cudaError_t launch_sgemm_2(char transA, char transB, int m, int n, int k,
 }
 
 // Explicit instantiation
-template cudaError_t launch_sgemm_2<float, float, float, float, float>(
-    char transA, char transB, int m, int n, int k, float alpha, float const* A,
-    int ldA, float const* B, int ldB, float beta, float* C, int ldC,
-    cudaStream_t stream);
+// template cudaError_t launch_sgemm_2<float, float, float, float, float>(
+//     char transA, char transB, int m, int n, int k, float alpha, float const*
+//     A, int ldA, float const* B, int ldB, float beta, float* C, int ldC,
+//     cudaStream_t stream);
 // template cudaError_t launch_sgemm_2<double, double, double, double, double>(
 //     char transA, char transB, int m, int n, int k, double alpha,
 //     double const* A, int ldA, double const* B, int ldB, double beta, double*
 //     C, int ldC, cudaStream_t stream);
-// template cudaError_t
-// launch_sgemm_2<cute::half_t, cute::half_t, cute::half_t, float, float>(
-//     char transA, char transB, int m, int n, int k, float alpha,
-//     cute::half_t const* A, int ldA, cute::half_t const* B, int ldB, float
-//     beta, cute::half_t* C, int ldC, cudaStream_t stream);
-// template cudaError_t
-// launch_sgemm_2<cute::half_t, cute::half_t, cute::half_t, cute::half_t,
-//                cute::half_t>(char transA, char transB, int m, int n, int k,
-//                              cute::half_t alpha, cute::half_t const* A, int
-//                              ldA, cute::half_t const* B, int ldB,
-//                              cute::half_t beta, cute::half_t* C, int ldC,
-//                              cudaStream_t stream);
+template cudaError_t
+launch_sgemm_2<cute::half_t, cute::half_t, cute::half_t, float, float>(
+    char transA, char transB, int m, int n, int k, float alpha,
+    cute::half_t const* A, int ldA, cute::half_t const* B, int ldB, float beta,
+    cute::half_t* C, int ldC, cudaStream_t stream);
+template cudaError_t
+launch_sgemm_2<cute::half_t, cute::half_t, cute::half_t, cute::half_t,
+               cute::half_t>(char transA, char transB, int m, int n, int k,
+                             cute::half_t alpha, cute::half_t const* A, int ldA,
+                             cute::half_t const* B, int ldB, cute::half_t beta,
+                             cute::half_t* C, int ldC, cudaStream_t stream);
