@@ -204,13 +204,13 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy(
                          cute::size<2>(thread_layout_A_global_block_tensor_A)),
         cute::make_stride(
             cute::Int<1>{},
-            cute::size<0>(thread_layout_A_global_block_tensor_A)))};
+            cute::size<1>(thread_layout_A_global_block_tensor_A)))};
     auto thread_layout_B_predicate_tensor_B{cute::make_tensor<bool>(
         cute::make_shape(cute::size<1>(thread_layout_B_global_block_tensor_B),
                          cute::size<2>(thread_layout_B_global_block_tensor_B)),
         cute::make_stride(
             cute::Int<1>{},
-            cute::size<0>(thread_layout_B_global_block_tensor_B)))};
+            cute::size<1>(thread_layout_B_global_block_tensor_B)))};
     auto thread_layout_C_predicate_tensor_C{cute::make_tensor<bool>(
         cute::make_shape(cute::size<0>(thread_layout_C_global_block_tensor_C),
                          cute::size<1>(thread_layout_C_global_block_tensor_C)),

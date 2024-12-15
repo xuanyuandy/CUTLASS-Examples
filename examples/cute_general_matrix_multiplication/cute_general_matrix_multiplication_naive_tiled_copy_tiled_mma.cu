@@ -138,61 +138,33 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
     auto thread_layout_B_smem_tensor_B{
         thread_copy_B.partition_D(smem_tensor_B)}; // (CPY, CPY_N, CPY_K)
 
-    // Partition the smem_tensor_A and smem_tensor_B across the threads using
-    // the thread layout thread_layout_C. Partition the global_block_tensor_C
-    // across the threads. This will be used for the gemm computation. Inner
-    // partition. Partition the smem_tensor_A (BLK_M, BLK_K) by the rows of
-    // thread_layout_C. Different threads in the same column of thread_layout_C
-    // will read the same data from smem_tensor_A. With Step<_1, X>{}, the
-    // second mode in the thread_layout_C layout is ignored.
-    // The threads in the same warp will read contiguous data from smem_tensor_A
-    // resulting in free of shared memory bank conflict.
-    auto thread_layout_C_smem_tensor_A{cute::local_partition(
-        smem_tensor_A, thread_layout_C, threadIdx.x,
-        cute::Step<cute::Int<1>, cute::X>{})}; // (BLK_M / THR_M,
-                                               // BLK_K)
-    // Partition the smem_tensor_B (BLK_N, BLK_K) by the cols of
-    // thread_layout_C. Different threads in the same row of thread_layout_C
-    // will read the same data from smem_tensor_B. With Step<X, _1>{}, the first
-    // mode in the thread_layout_C layout is ignored.
-    // The threads in the same warp will read the same data from the same
-    // location on smem_tensor_B resulting in a broadcast and no efficiency
-    // loss.
-    auto thread_layout_C_smem_tensor_B{cute::local_partition(
-        smem_tensor_B, thread_layout_C, threadIdx.x,
-        cute::Step<cute::X, cute::Int<1>>{})}; // (BLK_N / THR_N,
-                                               // BLK_K)
-    // Partition the global_block_tensor_C (BLK_M, BLK_N) by the tile of
-    // thread_layout_C.
-    auto thread_layout_C_global_block_tensor_C{cute::local_partition(
-        global_block_tensor_C, thread_layout_C, threadIdx.x,
-        cute::Step<cute::Int<1>, cute::Int<1>>{})}; // (BLK_M / THR_M, BLK_N /
-                                                    // THR_N)
-    // This is the same as the above.
-    // auto thread_layout_C_global_block_tensor_C{
-    //     cute::local_partition(global_block_tensor_C, thread_layout_C,
-    //                           threadIdx.x)}; // (BLK_M / THR_M, BLK_N /
-    //                           THR_N)
+    // Partition via MMA.
+    auto thread_mma{mma.get_slice(threadIdx.x)};
+    auto thread_layout_C_smem_tensor_A{
+        thread_mma.partition_A(smem_tensor_A)}; // (MMA, MMA_M, MMA_K)
+    auto thread_layout_C_smem_tensor_B{
+        thread_mma.partition_B(smem_tensor_B)}; // (MMA, MMA_N, MMA_K)
+    auto thread_layout_C_global_block_tensor_C{
+        thread_mma.partition_C(global_block_tensor_C)}; // (MMA, MMA_M, MMA_N)
 
     // Allocate the accumulators.
     // The layout is automatically compacted to the smallest possible layout to
     // avoid unnecessary memory/register usage.
     auto thread_layout_C_register_tensor_C{cute::make_tensor_like(
-        thread_layout_C_global_block_tensor_C)}; // (BLK_M / THR_M, BLK_N /
-                                                 // THR_N)
+        thread_layout_C_global_block_tensor_C)}; // (MMA, MMA_M, MMA_N)
 
     CUTE_STATIC_ASSERT_V(
-        cute::size<0>(thread_layout_C_smem_tensor_A) ==
-        cute::size<0>(thread_layout_C_register_tensor_C)); // BLK_M / THR_M
+        cute::size<1>(thread_layout_C_smem_tensor_A) ==
+        cute::size<1>(thread_layout_C_register_tensor_C)); // MMA_M
     CUTE_STATIC_ASSERT_V(
-        cute::size<0>(thread_layout_C_smem_tensor_B) ==
-        cute::size<1>(thread_layout_C_register_tensor_C)); // BLK_N / THR_N
-    CUTE_STATIC_ASSERT_V(
-        cute::size<0>(thread_layout_C_global_block_tensor_C) ==
-        cute::size<0>(thread_layout_C_register_tensor_C)); // BLK_M / THR_M
+        cute::size<1>(thread_layout_C_smem_tensor_B) ==
+        cute::size<2>(thread_layout_C_register_tensor_C)); // MMA_N
     CUTE_STATIC_ASSERT_V(
         cute::size<1>(thread_layout_C_global_block_tensor_C) ==
-        cute::size<1>(thread_layout_C_register_tensor_C)); // BLK_N / THR_N
+        cute::size<1>(thread_layout_C_register_tensor_C)); // MMA_M
+    CUTE_STATIC_ASSERT_V(
+        cute::size<2>(thread_layout_C_global_block_tensor_C) ==
+        cute::size<2>(thread_layout_C_register_tensor_C)); // MMA_N
 
     // Clear the accumulators.
     cute::clear(thread_layout_C_register_tensor_C);
@@ -205,19 +177,19 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
                          cute::size<2>(thread_layout_A_global_block_tensor_A)),
         cute::make_stride(
             cute::Int<1>{},
-            cute::size<0>(thread_layout_A_global_block_tensor_A)))};
+            cute::size<1>(thread_layout_A_global_block_tensor_A)))};
     auto thread_layout_B_predicate_tensor_B{cute::make_tensor<bool>(
         cute::make_shape(cute::size<1>(thread_layout_B_global_block_tensor_B),
                          cute::size<2>(thread_layout_B_global_block_tensor_B)),
         cute::make_stride(
             cute::Int<1>{},
-            cute::size<0>(thread_layout_B_global_block_tensor_B)))};
+            cute::size<1>(thread_layout_B_global_block_tensor_B)))};
     auto thread_layout_C_predicate_tensor_C{cute::make_tensor<bool>(
-        cute::make_shape(cute::size<0>(thread_layout_C_global_block_tensor_C),
-                         cute::size<1>(thread_layout_C_global_block_tensor_C)),
+        cute::make_shape(cute::size<1>(thread_layout_C_global_block_tensor_C),
+                         cute::size<2>(thread_layout_C_global_block_tensor_C)),
         cute::make_stride(
             cute::Int<1>{},
-            cute::size<0>(thread_layout_C_global_block_tensor_C)))};
+            cute::size<1>(thread_layout_C_global_block_tensor_C)))};
     // Create identity tensors.
     auto identity_tensor_A{cute::make_identity_tensor(cute::make_shape(
         cute::size<0>(smem_tensor_A), cute::size<1>(smem_tensor_A)))};
@@ -320,6 +292,7 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
 
     // Scale and accumulate the result from the register tensor to the global
     // block tensor.
+    // There does not seem to be a tiled axpby existing yet.
     cute::axpby(alpha, thread_layout_C_register_tensor_C, beta,
                 thread_layout_C_global_block_tensor_C,
                 thread_layout_C_predicate_tensor_C);
@@ -327,11 +300,11 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
 
 template <class TA, class TB, class TC, class Alpha, class Beta, class AStride,
           class BStride, class CStride, class VectorTypeA, class VectorTypeB>
-static cudaError_t gemm_base_tiled_copy(int m, int n, int k, Alpha alpha,
-                                        TA const* A, int ldA, TB const* B,
-                                        int ldB, Beta beta, TC* C, int ldC,
-                                        AStride stride_A, BStride stride_B,
-                                        CStride stride_C, cudaStream_t stream)
+static cudaError_t
+gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
+                               int ldA, TB const* B, int ldB, Beta beta, TC* C,
+                               int ldC, AStride stride_A, BStride stride_B,
+                               CStride stride_C, cudaStream_t stream)
 {
     // Define GEMM shape.
     auto const M{m};
@@ -520,9 +493,9 @@ static cudaError_t gemm_nn(int m, int n, int k, Alpha alpha, TA const* A,
     using VectorTypeA = cute::uint128_t;
     using VectorTypeB = TB;
 
-    return gemm_base_tiled_copy<TA, TB, TC, Alpha, Beta, decltype(stride_A),
-                                decltype(stride_B), decltype(stride_C),
-                                VectorTypeA, VectorTypeB>(
+    return gemm_base_tiled_copy_tiled_mma<
+        TA, TB, TC, Alpha, Beta, decltype(stride_A), decltype(stride_B),
+        decltype(stride_C), VectorTypeA, VectorTypeB>(
         m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A, stride_B,
         stride_C, stream);
 }
@@ -547,9 +520,9 @@ static cudaError_t gemm_nt(int m, int n, int k, Alpha alpha, TA const* A,
     using VectorTypeA = cute::uint128_t;
     using VectorTypeB = cute::uint128_t;
 
-    return gemm_base_tiled_copy<TA, TB, TC, Alpha, Beta, decltype(stride_A),
-                                decltype(stride_B), decltype(stride_C),
-                                VectorTypeA, VectorTypeB>(
+    return gemm_base_tiled_copy_tiled_mma<
+        TA, TB, TC, Alpha, Beta, decltype(stride_A), decltype(stride_B),
+        decltype(stride_C), VectorTypeA, VectorTypeB>(
         m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A, stride_B,
         stride_C, stream);
 }
@@ -584,9 +557,9 @@ static cudaError_t gemm_tn(int m, int n, int k, Alpha alpha, TA const* A,
     using VectorTypeA = TA;
     using VectorTypeB = TB;
 
-    return gemm_base_tiled_copy<TA, TB, TC, Alpha, Beta, decltype(stride_A),
-                                decltype(stride_B), decltype(stride_C),
-                                VectorTypeA, VectorTypeB>(
+    return gemm_base_tiled_copy_tiled_mma<
+        TA, TB, TC, Alpha, Beta, decltype(stride_A), decltype(stride_B),
+        decltype(stride_C), VectorTypeA, VectorTypeB>(
         m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A, stride_B,
         stride_C, stream);
 }
@@ -610,9 +583,9 @@ static cudaError_t gemm_tt(int m, int n, int k, Alpha alpha, TA const* A,
     using VectorTypeA = TA;
     using VectorTypeB = cute::uint128_t;
 
-    return gemm_base_tiled_copy<TA, TB, TC, Alpha, Beta, decltype(stride_A),
-                                decltype(stride_B), decltype(stride_C),
-                                VectorTypeA, VectorTypeB>(
+    return gemm_base_tiled_copy_tiled_mma<
+        TA, TB, TC, Alpha, Beta, decltype(stride_A), decltype(stride_B),
+        decltype(stride_C), VectorTypeA, VectorTypeB>(
         m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A, stride_B,
         stride_C, stream);
 }
