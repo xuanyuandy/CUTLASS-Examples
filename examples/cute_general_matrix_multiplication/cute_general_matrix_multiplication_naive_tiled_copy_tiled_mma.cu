@@ -13,14 +13,13 @@ constexpr int constexpr_log2(int n)
     return ((n < 2) ? 0 : 1 + constexpr_log2(n / 2));
 }
 
-// Tiled mma allows creating more sophisticated tiling schemes.
-// But currently I am not sure if it can improve the performance.
+// Use tiled copy and tiled MMA.
 template <class ProblemShape, class CtaTiler, class TA, class AStride,
           class ASmemLayout, class AThreadLayout, class TiledCopyA, class TB,
           class BStride, class BSmemLayout, class BThreadLayout,
           class TiledCopyB, class TC, class CStride, class CSmemLayout,
           class CThreadLayout, class TiledMMA, class Alpha, class Beta>
-static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
+static __global__ void general_matrix_multiplication_tiled_copy_tiled_mma(
     ProblemShape shape_MNK, CtaTiler cta_tiler, TA const* A, AStride stride_A,
     ASmemLayout smem_layout_A, AThreadLayout, TiledCopyA copy_A, TB const* B,
     BStride stride_B, BSmemLayout smem_layout_B, BThreadLayout,
@@ -449,8 +448,8 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
     dim3 const grid_dims{
         static_cast<unsigned int>(cute::size(cute::ceil_div(M, bM))),
         static_cast<unsigned int>(cute::size(cute::ceil_div(N, bN)))};
-    general_matrix_multiplication_naive_tiled_copy_tiled_mma<<<
-        grid_dims, block_dims, 0, stream>>>(
+    general_matrix_multiplication_tiled_copy_tiled_mma<<<grid_dims, block_dims,
+                                                         0, stream>>>(
         gemm_shape, cta_tiler, A, stride_A, smem_layout_A_swizzled,
         thread_layout_A, copy_A, B, stride_B, smem_layout_B_swizzled,
         thread_layout_B, copy_B, C, stride_C, smem_layout_C, thread_layout_C,
