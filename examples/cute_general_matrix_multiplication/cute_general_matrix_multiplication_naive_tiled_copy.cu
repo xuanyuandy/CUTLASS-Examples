@@ -236,6 +236,7 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy(
     CUTE_UNROLL
     for (auto m{0}; m < cute::size<0>(thread_layout_A_predicate_tensor_A); ++m)
     {
+        CUTE_UNROLL
         for (auto k{0}; k < cute::size<1>(thread_layout_A_predicate_tensor_A);
              ++k)
         {
@@ -251,6 +252,7 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy(
     CUTE_UNROLL
     for (auto n{0}; n < cute::size<0>(thread_layout_B_predicate_tensor_B); ++n)
     {
+        CUTE_UNROLL
         for (auto k{0}; k < cute::size<1>(thread_layout_B_predicate_tensor_B);
              ++k)
         {
@@ -341,7 +343,7 @@ static cudaError_t gemm_base_tiled_copy(int m, int n, int k, Alpha alpha,
     // Define CTA size.
     auto const bM{cute::Int<128 * 4 / sizeof(TA)>{}};
     auto const bN{cute::Int<128 * 4 / sizeof(TB)>{}};
-    auto const bK{cute::Int<8>{}};
+    auto const bK{cute::Int<16>{}};
     auto const cta_tiler{cute::make_shape(bM, bN, bK)}; // (BLK_M, BLK_N, BLK_K)
 
     // Define smem layouts.

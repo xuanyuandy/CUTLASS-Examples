@@ -196,6 +196,7 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
     CUTE_UNROLL
     for (auto m{0}; m < cute::size<0>(thread_layout_A_predicate_tensor_A); ++m)
     {
+        CUTE_UNROLL
         for (auto k{0}; k < cute::size<1>(thread_layout_A_predicate_tensor_A);
              ++k)
         {
@@ -211,6 +212,7 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
     CUTE_UNROLL
     for (auto n{0}; n < cute::size<0>(thread_layout_B_predicate_tensor_B); ++n)
     {
+        CUTE_UNROLL
         for (auto k{0}; k < cute::size<1>(thread_layout_B_predicate_tensor_B);
              ++k)
         {

@@ -439,9 +439,9 @@ static cudaError_t gemm_base(int m, int n, int k, Alpha alpha, TA const* A,
     auto const gemm_shape{cute::make_shape(M, N, K)}; // (M, N, K)
 
     // Define CTA size.
-    auto const bM{cute::Int<128>{}};
-    auto const bN{cute::Int<128>{}};
-    auto const bK{cute::Int<8>{}};
+    auto const bM{cute::Int<128 * 4 / sizeof(TA)>{}};
+    auto const bN{cute::Int<128 * 4 / sizeof(TB)>{}};
+    auto const bK{cute::Int<32>{}};
     auto const cta_tiler{cute::make_shape(bM, bN, bK)}; // (BLK_M, BLK_N, BLK_K)
 
     // Define smem layouts.

@@ -362,7 +362,7 @@ static void gemm_nt(int m, int n, int k, Alpha alpha, TA const* A, int ldA,
     // Define CTA tile sizes (static)
     auto bM = Int<128>{};
     auto bN = Int<128>{};
-    auto bK = Int<8>{};
+    auto bK = Int<16>{};
     auto cta_tiler = make_shape(bM, bN, bK); // (BLK_M, BLK_N, BLK_K)
 
     // Define the smem layouts (static)

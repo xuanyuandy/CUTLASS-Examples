@@ -196,6 +196,7 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
     CUTE_UNROLL
     for (auto m{0}; m < cute::size<0>(thread_layout_A_predicate_tensor_A); ++m)
     {
+        CUTE_UNROLL
         for (auto k{0}; k < cute::size<1>(thread_layout_A_predicate_tensor_A);
              ++k)
         {
@@ -211,6 +212,7 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
     CUTE_UNROLL
     for (auto n{0}; n < cute::size<0>(thread_layout_B_predicate_tensor_B); ++n)
     {
+        CUTE_UNROLL
         for (auto k{0}; k < cute::size<1>(thread_layout_B_predicate_tensor_B);
              ++k)
         {
@@ -263,7 +265,8 @@ static __global__ void general_matrix_multiplication_naive_tiled_copy_tiled_mma(
 
         // Compute gemm on thread_layout_C thread-partitioned smem.
         // This implicitly uses the UniversalFMA GEMM atom.
-        cute::gemm(thread_layout_C_smem_tensor_A, thread_layout_C_smem_tensor_B,
+        cute::gemm(mma, thread_layout_C_smem_tensor_A,
+                   thread_layout_C_smem_tensor_B,
                    thread_layout_C_register_tensor_C); // (BLK_M / THR_M, BLK_N
                                                        // / THR_N) += (BLK_M /
                                                        // THR_M, BLK_K) * (BLK_N
@@ -297,7 +300,7 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
     // Define CTA size.
     auto const bM{cute::Int<128 * 4 / sizeof(TA)>{}};
     auto const bN{cute::Int<128 * 4 / sizeof(TB)>{}};
-    auto const bK{cute::Int<8>{}};
+    auto const bK{cute::Int<32>{}};
     auto const cta_tiler{cute::make_shape(bM, bN, bK)}; // (BLK_M, BLK_N, BLK_K)
 
     // Define smem layouts.
