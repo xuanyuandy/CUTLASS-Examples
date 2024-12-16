@@ -8,6 +8,7 @@ The CUDA kernel examples using [CUTLASS](https://github.com/NVIDIA/cutlass) and 
 
 - [CuTe Matrix Transpose](/examples/cute_matrix_transpose/)
 - [CuTe Vector Copy](/examples/cute_vector_copy/)
+- [CuTe General Matrix Multiplication](/examples/cute_general_matrix_multiplication/)
 
 ## Usages
 
@@ -58,8 +59,9 @@ $ xhost -
 To build the CUDA kernels, please run the following commands.
 
 ```bash
+$ export NUM_CMAKE_JOBS=4
 $ cmake -B build
-$ NUM_CMAKE_JOBS=4 cmake --build build --config Release --parallel ${NUM_CMAKE_JOBS}
+$ cmake --build build --config Release --parallel ${NUM_CMAKE_JOBS}
 ```
 
 ### Run Example Unit Tests
