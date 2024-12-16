@@ -1,1 +1,2 @@
-examples/** -linguist-detectable
+# Unmark the directory as documentation.
+examples/** -linguist-documentation
