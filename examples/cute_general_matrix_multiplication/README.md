@@ -30,22 +30,22 @@ Only the general matrix multiplication kernels that consume half typed data and 
 
 |                Kernel Name                | Trans A | Trans B | Latency (ms) |  TOPs   | Performance VS cuBLAS (%) |
 | :---------------------------------------: | :-----: | :-----: | :----------: | :-----: | :-----------------------: |
-|                  cuBLAS                   |    T    |    T    |   0.965811   | 142.304 |             -             |
-|                  cuBLAS                   |    T    |    N    |   1.16111    | 118.368 |             -             |
-|                  cuBLAS                   |    N    |    T    |   0.953651   | 144.119 |             -             |
-|                  cuBLAS                   |    N    |    N    |   1.03472    | 132.827 |             -             |
-|                   Naive                   |    T    |    T    |   14.5984    | 9.41468 |          6.61589          |
-|                   Naive                   |    T    |    N    |   11.8134    | 11.6342 |          9.8288           |
-|                   Naive                   |    N    |    T    |    13.864    | 9.91334 |          6.8786           |
-|                   Naive                   |    N    |    N    |   10.1447    | 13.5478 |          10.1996          |
-|          Tiled Copy + Tiled MMA           |    T    |    T    |   9.22368    | 14.9007 |          13.0754          |
-|          Tiled Copy + Tiled MMA           |    T    |    N    |   10.5959    | 12.9709 |          9.51138          |
-|          Tiled Copy + Tiled MMA           |    N    |    T    |   5.51072    | 24.9403 |          17.5581          |
-|          Tiled Copy + Tiled MMA           |    N    |    N    |   8.28507    | 16.5888 |          11.9505          |
-| Tiled Copy + Tiled MMA + SM80 Tensor Core |    T    |    T    |   5.95068    | 23.0963 |          17.0876          |
-| Tiled Copy + Tiled MMA + SM80 Tensor Core |    T    |    N    |   8.30013    | 16.5586 |          12.0101          |
-| Tiled Copy + Tiled MMA + SM80 Tensor Core |    N    |    T    |   3.30701    | 41.5599 |          32.5402          |
-| Tiled Copy + Tiled MMA + SM80 Tensor Core |    N    |    N    |   5.85392    | 23.4781 |          19.3503          |
+|                  cuBLAS                   |    T    |    T    |   0.961536   | 142.937 |             -             |
+|                  cuBLAS                   |    T    |    N    |   1.00198    | 137.167 |             -             |
+|                  cuBLAS                   |    N    |    T    |   0.942925   | 145.758 |             -             |
+|                  cuBLAS                   |    N    |    N    |   1.06793    | 128.697 |             -             |
+|                   Naive                   |    T    |    T    |   13.3946    | 10.2607 |          7.17852          |
+|                   Naive                   |    T    |    N    |   12.9244    | 10.6341 |          7.75264          |
+|                   Naive                   |    N    |    T    |   13.9895    | 9.82445 |          6.74024          |
+|                   Naive                   |    N    |    N    |   9.64628    | 14.2479 |          11.0709          |
+|          Tiled Copy + Tiled MMA           |    T    |    T    |   7.89575    | 17.4067 |          12.2555          |
+|          Tiled Copy + Tiled MMA           |    T    |    N    |   9.76526    | 14.0743 |          10.375           |
+|          Tiled Copy + Tiled MMA           |    N    |    T    |   5.58715    | 24.5991 |          17.4957          |
+|          Tiled Copy + Tiled MMA           |    N    |    N    |   9.00575    | 15.2612 |          11.0451          |
+| Tiled Copy + Tiled MMA + SM80 Tensor Core |    T    |    T    |   5.25312    | 26.1633 |          20.4351          |
+| Tiled Copy + Tiled MMA + SM80 Tensor Core |    T    |    N    |   8.35786    | 16.4443 |          13.5997          |
+| Tiled Copy + Tiled MMA + SM80 Tensor Core |    N    |    T    |   2.66874    | 51.4996 |          40.6004          |
+| Tiled Copy + Tiled MMA + SM80 Tensor Core |    N    |    N    |   5.03395    | 27.3024 |          22.1927          |
 
 ### Run Nsight Compute Profiling
 
