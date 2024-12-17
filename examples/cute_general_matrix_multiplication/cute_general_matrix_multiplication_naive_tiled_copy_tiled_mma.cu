@@ -420,13 +420,15 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
                                   thread_layout_C)};
 
     // Swizzle parameters.
-    constexpr int NUM_SHIFT_BITS_A{constexpr_log2(bM)};
-    constexpr int NUM_MASK_BITS_A{constexpr_log2(32)};
     constexpr int NUM_BASE_BITS_A{constexpr_log2(NUM_VECTOR_ELEMENTS_A)};
+    constexpr int NUM_MASK_BITS_A{constexpr_log2(32 * 4 / sizeof(TA)) -
+                                  NUM_BASE_BITS_A};
+    constexpr int NUM_SHIFT_BITS_A{constexpr_log2(bM) - NUM_BASE_BITS_A};
 
-    constexpr int NUM_SHIFT_BITS_B{constexpr_log2(bN)};
-    constexpr int NUM_MASK_BITS_B{constexpr_log2(32)};
     constexpr int NUM_BASE_BITS_B{constexpr_log2(NUM_VECTOR_ELEMENTS_B)};
+    constexpr int NUM_MASK_BITS_B{constexpr_log2(32 * 4 / sizeof(TB)) -
+                                  NUM_BASE_BITS_B};
+    constexpr int NUM_SHIFT_BITS_B{constexpr_log2(bN) - NUM_BASE_BITS_B};
 
     auto const swizzle_A{
         cute::Swizzle<NUM_MASK_BITS_A, NUM_BASE_BITS_A, NUM_SHIFT_BITS_A>{}};

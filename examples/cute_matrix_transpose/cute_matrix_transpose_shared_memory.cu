@@ -698,9 +698,11 @@ static cudaError_t launch_matrix_transpose_shared_memory_swizzled(
 
     using TILE_SIZE_X = cute::Int<64>; // bN
     using TILE_SIZE_Y = cute::Int<32>; // bM
-    constexpr int NUM_SHIFT_BITS{constexpr_log2(TILE_SIZE_X::value)};
-    constexpr int NUM_MASK_BITS{constexpr_log2(32)};
-    constexpr int NUM_BASE_BITS{0};
+    constexpr int NUM_BASE_BITS{constexpr_log2(1)};
+    constexpr int NUM_MASK_BITS{constexpr_log2(32 * 4 / sizeof(T)) -
+                                NUM_BASE_BITS};
+    constexpr int NUM_SHIFT_BITS{constexpr_log2(TILE_SIZE_X::value) -
+                                 NUM_BASE_BITS};
 
     constexpr auto block_shape{cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
     constexpr auto block_shape_transposed{
@@ -799,9 +801,11 @@ static cudaError_t launch_matrix_transpose_shared_memory_vectorized_swizzled(
 
     using TILE_SIZE_X = cute::Int<128>; // bN
     using TILE_SIZE_Y = cute::Int<32>;  // bM
-    constexpr int NUM_SHIFT_BITS{constexpr_log2(TILE_SIZE_X::value)};
-    constexpr int NUM_MASK_BITS{constexpr_log2(32)};
     constexpr int NUM_BASE_BITS{constexpr_log2(NUM_VECTOR_ELEMENTS)};
+    constexpr int NUM_MASK_BITS{constexpr_log2(32 * 4 / sizeof(T)) -
+                                NUM_BASE_BITS};
+    constexpr int NUM_SHIFT_BITS{constexpr_log2(TILE_SIZE_X::value) -
+                                 NUM_BASE_BITS};
 
     constexpr auto block_shape{cute::make_shape(TILE_SIZE_Y{}, TILE_SIZE_X{})};
     constexpr auto block_shape_transposed{
