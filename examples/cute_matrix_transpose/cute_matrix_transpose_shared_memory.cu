@@ -15,10 +15,10 @@ __global__ void static matrix_transpose_shared_memory(
     SharedMemoryLayoutDst, ThreadLayoutSrc, ThreadLayoutDst)
 {
     using Element = typename TensorSrc::value_type;
-    CUTE_STATIC_ASSERT(cute::size(SharedMemoryLayoutSrc{}) ==
-                           cute::size(SharedMemoryLayoutDst{}),
-                       "SharedMemoryLayoutSrc and SharedMemoryLayoutDst "
-                       "must have the same size.");
+    CUTE_STATIC_ASSERT_V(cute::size(SharedMemoryLayoutSrc{}) ==
+                             cute::size(SharedMemoryLayoutDst{}),
+                         "SharedMemoryLayoutSrc and SharedMemoryLayoutDst "
+                         "must have the same size.");
     __shared__ Element shared_memory[cute::cosize(SharedMemoryLayoutSrc{})];
 
     auto tensor_cache_src{cute::make_tensor(cute::make_smem_ptr(shared_memory),
@@ -120,10 +120,10 @@ __global__ void static matrix_transpose_shared_memory_vectorized(
     SharedMemoryLayoutDst, ThreadLayoutSrc, ThreadLayoutDst, VectorLayout)
 {
     using Element = typename TensorSrc::value_type;
-    CUTE_STATIC_ASSERT(cute::size(SharedMemoryLayoutSrc{}) ==
-                           cute::size(SharedMemoryLayoutDst{}),
-                       "SharedMemoryLayoutSrc and SharedMemoryLayoutDst "
-                       "must have the same size.");
+    CUTE_STATIC_ASSERT_V(cute::size(SharedMemoryLayoutSrc{}) ==
+                             cute::size(SharedMemoryLayoutDst{}),
+                         "SharedMemoryLayoutSrc and SharedMemoryLayoutDst "
+                         "must have the same size.");
     __shared__ Element shared_memory[cute::cosize(SharedMemoryLayoutSrc{})];
 
     auto tensor_cache_src{cute::make_tensor(cute::make_smem_ptr(shared_memory),
@@ -282,10 +282,10 @@ static cudaError_t launch_matrix_transpose_shared_memory_bank_conflict_base(
     using ThreadBlockSizeX = cute::Int<32>; // tN
     using ThreadBlockSizeY = cute::Int<8>;  // tM
 
-    CUTE_STATIC_ASSERT(TileSizeX::value % ThreadBlockSizeX::value == 0,
-                       "TileSizeX must be divisible by ThreadBlockSizeX");
-    CUTE_STATIC_ASSERT(TileSizeY::value % ThreadBlockSizeY::value == 0,
-                       "TileSizeY must be divisible by ThreadBlockSizeY");
+    CUTE_STATIC_ASSERT_V(TileSizeX{} % ThreadBlockSizeX{} == cute::Int<0>{},
+                         "TileSizeX must be divisible by ThreadBlockSizeX");
+    CUTE_STATIC_ASSERT_V(TileSizeY{} % ThreadBlockSizeY{} == cute::Int<0>{},
+                         "TileSizeY must be divisible by ThreadBlockSizeY");
 
     constexpr auto thread_block_shape{
         cute::make_shape(ThreadBlockSizeY{}, ThreadBlockSizeX{})};
@@ -327,8 +327,8 @@ launch_matrix_transpose_shared_memory_vectorized_bank_conflict_base(
     cudaStream_t stream)
 {
     using VectorType = cute::uint128_t;
-    static_assert(sizeof(VectorType) % sizeof(T) == 0,
-                  "sizeof(VectorType) must be a multiple of sizeof(T)");
+    CUTE_STATIC_ASSERT(sizeof(VectorType) % sizeof(T) == 0,
+                       "sizeof(VectorType) must be a multiple of sizeof(T)");
     constexpr unsigned int NUM_VECTOR_ELEMENTS{sizeof(VectorType) / sizeof(T)};
 
     if (N % NUM_VECTOR_ELEMENTS != 0)
@@ -384,10 +384,10 @@ launch_matrix_transpose_shared_memory_vectorized_bank_conflict_base(
     using ThreadBlockSizeX = cute::Int<32>; // tN
     using ThreadBlockSizeY = cute::Int<8>;  // tM
 
-    CUTE_STATIC_ASSERT(TileSizeX::value % ThreadBlockSizeX::value == 0,
-                       "TileSizeX must be divisible by ThreadBlockSizeX");
-    CUTE_STATIC_ASSERT(TileSizeY::value % ThreadBlockSizeY::value == 0,
-                       "TileSizeY must be divisible by ThreadBlockSizeY");
+    CUTE_STATIC_ASSERT_V(TileSizeX{} % ThreadBlockSizeX{} == cute::Int<0>{},
+                         "TileSizeX must be divisible by ThreadBlockSizeX");
+    CUTE_STATIC_ASSERT_V(TileSizeY{} % ThreadBlockSizeY{} == cute::Int<0>{},
+                         "TileSizeY must be divisible by ThreadBlockSizeY");
 
     constexpr auto thread_block_shape{
         cute::make_shape(ThreadBlockSizeY{}, ThreadBlockSizeX{})};
@@ -513,10 +513,10 @@ static cudaError_t launch_matrix_transpose_shared_memory_padded(
     using ThreadBlockSizeX = cute::Int<32>; // tN
     using ThreadBlockSizeY = cute::Int<8>;  // tM
 
-    CUTE_STATIC_ASSERT(TileSizeX::value % ThreadBlockSizeX::value == 0,
-                       "TileSizeX must be divisible by ThreadBlockSizeX");
-    CUTE_STATIC_ASSERT(TileSizeY::value % ThreadBlockSizeY::value == 0,
-                       "TileSizeY must be divisible by ThreadBlockSizeY");
+    CUTE_STATIC_ASSERT_V(TileSizeX{} % ThreadBlockSizeX{} == cute::Int<0>{},
+                         "TileSizeX must be divisible by ThreadBlockSizeX");
+    CUTE_STATIC_ASSERT_V(TileSizeY{} % ThreadBlockSizeY{} == cute::Int<0>{},
+                         "TileSizeY must be divisible by ThreadBlockSizeY");
 
     constexpr auto thread_block_shape{
         cute::make_shape(ThreadBlockSizeY{}, ThreadBlockSizeX{})};
@@ -545,8 +545,8 @@ static cudaError_t launch_matrix_transpose_shared_memory_vectorized_padded(
     cudaStream_t stream)
 {
     using VectorType = cute::uint128_t;
-    static_assert(sizeof(VectorType) % sizeof(T) == 0,
-                  "sizeof(VectorType) must be a multiple of sizeof(T)");
+    CUTE_STATIC_ASSERT(sizeof(VectorType) % sizeof(T) == 0,
+                       "sizeof(VectorType) must be a multiple of sizeof(T)");
     constexpr unsigned int NUM_VECTOR_ELEMENTS{sizeof(VectorType) / sizeof(T)};
 
     if (N % NUM_VECTOR_ELEMENTS != 0)
@@ -611,10 +611,10 @@ static cudaError_t launch_matrix_transpose_shared_memory_vectorized_padded(
     using ThreadBlockSizeX = cute::Int<32>; // tN
     using ThreadBlockSizeY = cute::Int<8>;  // tM
 
-    CUTE_STATIC_ASSERT(TileSizeX::value % ThreadBlockSizeX::value == 0,
-                       "TileSizeX must be divisible by ThreadBlockSizeX");
-    CUTE_STATIC_ASSERT(TileSizeY::value % ThreadBlockSizeY::value == 0,
-                       "TileSizeY must be divisible by ThreadBlockSizeY");
+    CUTE_STATIC_ASSERT_V(TileSizeX{} % ThreadBlockSizeX{} == cute::Int<0>{},
+                         "TileSizeX must be divisible by ThreadBlockSizeX");
+    CUTE_STATIC_ASSERT_V(TileSizeY{} % ThreadBlockSizeY{} == cute::Int<0>{},
+                         "TileSizeY must be divisible by ThreadBlockSizeY");
 
     constexpr auto thread_block_shape{
         cute::make_shape(ThreadBlockSizeY{}, ThreadBlockSizeX{})};
@@ -731,10 +731,10 @@ static cudaError_t launch_matrix_transpose_shared_memory_swizzled(
     using ThreadBlockSizeX = cute::Int<32>; // tN
     using ThreadBlockSizeY = cute::Int<8>;  // tM
 
-    CUTE_STATIC_ASSERT(TileSizeX::value % ThreadBlockSizeX::value == 0,
-                       "TileSizeX must be divisible by ThreadBlockSizeX");
-    CUTE_STATIC_ASSERT(TileSizeY::value % ThreadBlockSizeY::value == 0,
-                       "TileSizeY must be divisible by ThreadBlockSizeY");
+    CUTE_STATIC_ASSERT_V(TileSizeX{} % ThreadBlockSizeX{} == cute::Int<0>{},
+                         "TileSizeX must be divisible by ThreadBlockSizeX");
+    CUTE_STATIC_ASSERT_V(TileSizeY{} % ThreadBlockSizeY{} == cute::Int<0>{},
+                         "TileSizeY must be divisible by ThreadBlockSizeY");
 
     constexpr auto thread_block_shape{
         cute::make_shape(ThreadBlockSizeY{}, ThreadBlockSizeX{})};
@@ -763,8 +763,8 @@ static cudaError_t launch_matrix_transpose_shared_memory_vectorized_swizzled(
     cudaStream_t stream)
 {
     using VectorType = cute::uint128_t;
-    static_assert(sizeof(VectorType) % sizeof(T) == 0,
-                  "sizeof(VectorType) must be a multiple of sizeof(T)");
+    CUTE_STATIC_ASSERT(sizeof(VectorType) % sizeof(T) == 0,
+                       "sizeof(VectorType) must be a multiple of sizeof(T)");
     constexpr unsigned int NUM_VECTOR_ELEMENTS{sizeof(VectorType) / sizeof(T)};
 
     if (N % NUM_VECTOR_ELEMENTS != 0)
@@ -836,10 +836,10 @@ static cudaError_t launch_matrix_transpose_shared_memory_vectorized_swizzled(
     using ThreadBlockSizeX = cute::Int<32>; // tN
     using ThreadBlockSizeY = cute::Int<8>;  // tM
 
-    CUTE_STATIC_ASSERT(TileSizeX::value % ThreadBlockSizeX::value == 0,
-                       "TileSizeX must be divisible by ThreadBlockSizeX");
-    CUTE_STATIC_ASSERT(TileSizeY::value % ThreadBlockSizeY::value == 0,
-                       "TileSizeY must be divisible by ThreadBlockSizeY");
+    CUTE_STATIC_ASSERT_V(TileSizeX{} % ThreadBlockSizeX{} == cute::Int<0>{},
+                         "TileSizeX must be divisible by ThreadBlockSizeX");
+    CUTE_STATIC_ASSERT_V(TileSizeY{} % ThreadBlockSizeY{} == cute::Int<0>{},
+                         "TileSizeY must be divisible by ThreadBlockSizeY");
 
     constexpr auto thread_block_shape{
         cute::make_shape(ThreadBlockSizeY{}, ThreadBlockSizeX{})};

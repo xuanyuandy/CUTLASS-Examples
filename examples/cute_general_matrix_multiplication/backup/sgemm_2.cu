@@ -65,9 +65,9 @@ __global__ static __launch_bounds__(decltype(size(
     CUTE_STATIC_ASSERT_V(size(copy_a) == size(mma)); // NumThreads
     CUTE_STATIC_ASSERT_V(size(copy_b) == size(mma)); // NumThreads
 
-    static_assert(is_static<ASmemLayout>::value);
-    static_assert(is_static<BSmemLayout>::value);
-    static_assert(is_static<CSmemLayout>::value);
+    CUTE_STATIC_ASSERT(is_static<ASmemLayout>::value);
+    CUTE_STATIC_ASSERT(is_static<BSmemLayout>::value);
+    CUTE_STATIC_ASSERT(is_static<CSmemLayout>::value);
 
     CUTE_STATIC_ASSERT_V(size<0>(ASmemLayout{}) == size<0>(cta_tiler)); // BLK_M
     CUTE_STATIC_ASSERT_V(size<0>(CSmemLayout{}) == size<0>(cta_tiler)); // BLK_M

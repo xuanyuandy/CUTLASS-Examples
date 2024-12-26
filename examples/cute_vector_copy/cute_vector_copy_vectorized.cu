@@ -54,8 +54,8 @@ launch_vector_copy_vectorized(T const* input_vector, T* output_vector,
                               unsigned int size, cudaStream_t stream)
 {
     using VectorType = cute::uint128_t;
-    static_assert(sizeof(VectorType) % sizeof(T) == 0,
-                  "sizeof(VectorType) must be a multiple of sizeof(T)");
+    CUTE_STATIC_ASSERT(sizeof(VectorType) % sizeof(T) == 0,
+                       "sizeof(VectorType) must be a multiple of sizeof(T)");
     constexpr unsigned int NUM_VECTOR_ELEMENTS{sizeof(VectorType) / sizeof(T)};
 
     if (size % NUM_VECTOR_ELEMENTS != 0)
@@ -100,8 +100,8 @@ launch_vector_copy_vectorized(T const* input_vector, T* output_vector,
     dim3 const grid_dim{cute::size<1>(tiled_tensor_src)};
     dim3 const thread_dim{cute::size(thread_layout)};
 
-    CUTE_STATIC_ASSERT(TileSizeX::value % ThreadBlockSizeX::value == 0,
-                       "TileSizeX must be divisible by ThreadBlockSizeX");
+    CUTE_STATIC_ASSERT_V(TileSizeX{} % ThreadBlockSizeX{} == cute::Int<0>{},
+                         "TileSizeX must be divisible by ThreadBlockSizeX");
     vector_copy_vectorized<<<grid_dim, thread_dim, 0, stream>>>(
         tiled_tensor_src, tiled_tensor_dst, size, tiled_copy);
 

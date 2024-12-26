@@ -65,9 +65,9 @@ __global__ static __launch_bounds__(decltype(size(
     CUTE_STATIC_ASSERT_V(rank(shape_MNK) == Int<3>{}); // (M, N, K)
     CUTE_STATIC_ASSERT_V(rank(cta_tiler) == Int<3>{}); // (BLK_M, BLK_N, BLK_K)
 
-    static_assert(is_static<AThreadLayout>::value);
-    static_assert(is_static<BThreadLayout>::value);
-    static_assert(is_static<CThreadLayout>::value);
+    CUTE_STATIC_ASSERT(is_static<AThreadLayout>::value);
+    CUTE_STATIC_ASSERT(is_static<BThreadLayout>::value);
+    CUTE_STATIC_ASSERT(is_static<CThreadLayout>::value);
 
     CUTE_STATIC_ASSERT_V(size(tA) == size(tB)); // NumThreads
     CUTE_STATIC_ASSERT_V(size(tC) == size(tA)); // NumThreads
@@ -85,9 +85,9 @@ __global__ static __launch_bounds__(decltype(size(
     CUTE_STATIC_ASSERT_V(size<1>(cta_tiler) % size<1>(tC) ==
                          Int<0>{}); // BLK_N / THR_N
 
-    static_assert(is_static<ASmemLayout>::value);
-    static_assert(is_static<BSmemLayout>::value);
-    static_assert(is_static<CSmemLayout>::value);
+    CUTE_STATIC_ASSERT(is_static<ASmemLayout>::value);
+    CUTE_STATIC_ASSERT(is_static<BSmemLayout>::value);
+    CUTE_STATIC_ASSERT(is_static<CSmemLayout>::value);
 
     // ASmemLayout: (BLK_M, BLK_K)
     // BSmemLayout: (BLK_N, BLK_K)

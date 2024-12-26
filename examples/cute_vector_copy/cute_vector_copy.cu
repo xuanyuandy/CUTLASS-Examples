@@ -70,8 +70,8 @@ static cudaError_t launch_vector_copy(T const* input_vector, T* output_vector,
     dim3 const grid_dim{cute::size<1>(tiled_tensor_src)};
     dim3 const thread_dim{cute::size(thread_layout)};
 
-    CUTE_STATIC_ASSERT(TileSizeX::value % ThreadBlockSizeX::value == 0,
-                       "TileSizeX must be divisible by ThreadBlockSizeX");
+    CUTE_STATIC_ASSERT_V(TileSizeX{} % ThreadBlockSizeX{} == cute::Int<0>{},
+                         "TileSizeX must be divisible by ThreadBlockSizeX");
     vector_copy<<<grid_dim, thread_dim, 0, stream>>>(
         tiled_tensor_src, tiled_tensor_dst, size, thread_layout);
 

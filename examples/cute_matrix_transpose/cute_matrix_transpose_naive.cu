@@ -129,19 +129,19 @@ static cudaError_t launch_matrix_transpose_naive_base(
 
     if (coalesced_access_mode == GlobalMemoryCoalescedAccessMode::Read)
     {
-        CUTE_STATIC_ASSERT(TileSizeX::value % ThreadBlockSizeX::value == 0,
-                           "TileSizeX must be divisible by ThreadBlockSizeX");
-        CUTE_STATIC_ASSERT(TileSizeY::value % ThreadBlockSizeY::value == 0,
-                           "TileSizeY must be divisible by ThreadBlockSizeY");
+        CUTE_STATIC_ASSERT_V(TileSizeX{} % ThreadBlockSizeX{} == cute::Int<0>{},
+                             "TileSizeX must be divisible by ThreadBlockSizeX");
+        CUTE_STATIC_ASSERT_V(TileSizeY{} % ThreadBlockSizeY{} == cute::Int<0>{},
+                             "TileSizeY must be divisible by ThreadBlockSizeY");
         matrix_transpose_naive<<<grid_dim, thread_dim, 0, stream>>>(
             tiled_tensor_src, tiled_tensor_dst_transposed, thread_layout);
     }
     else
     {
-        CUTE_STATIC_ASSERT(TileSizeX::value % ThreadBlockSizeY::value == 0,
-                           "TileSizeX must be divisible by ThreadBlockSizeY");
-        CUTE_STATIC_ASSERT(TileSizeY::value % ThreadBlockSizeX::value == 0,
-                           "TileSizeY must be divisible by ThreadBlockSizeX");
+        CUTE_STATIC_ASSERT_V(TileSizeX{} % ThreadBlockSizeY{} == cute::Int<0>{},
+                             "TileSizeX must be divisible by ThreadBlockSizeY");
+        CUTE_STATIC_ASSERT_V(TileSizeY{} % ThreadBlockSizeX{} == cute::Int<0>{},
+                             "TileSizeY must be divisible by ThreadBlockSizeX");
         matrix_transpose_naive<<<grid_dim, thread_dim, 0, stream>>>(
             tiled_tensor_src, tiled_tensor_dst_transposed,
             thread_layout_transposed);
