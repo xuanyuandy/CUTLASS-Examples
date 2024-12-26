@@ -398,7 +398,7 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
             (cute::size<0>(thread_layout_A) * cute::size<0>(vector_layout_A)) ==
         cute::Int<0>{}); // BLK_M % (THR_M * NUM_VECTOR_ELEMENTS_A) == 0
 
-    auto const NUM_VECTOR_ELEMENTS_B{sizeof(VectorTypeB) / sizeof(TB)};
+    constexpr auto NUM_VECTOR_ELEMENTS_B{sizeof(VectorTypeB) / sizeof(TB)};
     auto const vector_shape_B{
         cute::make_shape(cute::Int<NUM_VECTOR_ELEMENTS_B>{},
                          cute::Int<1>{})}; // (NUM_VECTOR_ELEMENTS_B, 1)
