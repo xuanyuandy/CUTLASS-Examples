@@ -1,3 +1,6 @@
+#ifndef CUTE_MATRIX_TRANSPOSE_TEST_UTILS_HPP
+#define CUTE_MATRIX_TRANSPOSE_TEST_UTILS_HPP
+
 #include <iostream>
 
 #include <cuda_runtime.h>
@@ -140,7 +143,7 @@ protected:
         // Create CUDA stream.
         CHECK_CUDA_ERROR(cudaStreamCreate(&m_stream));
 
-        // Get paramater.
+        // Get parameter.
         m_M = std::get<0>(GetParam());
         m_N = std::get<1>(GetParam());
 
@@ -212,7 +215,8 @@ protected:
                                       thrust::raw_pointer_cast(m_d_src.data()),
                                       thrust::raw_pointer_cast(m_d_dst.data()),
                                       m_M, m_N, std::placeholders::_1)};
-        float const latency{measure_performance<T>(function, m_stream)};
+        float const latency{measure_performance<T>(function, m_stream,
+                                                   num_repeats, num_warmups)};
         GTEST_COUT << "Latency: " << latency << " ms" << std::endl;
         GTEST_COUT << "Effective Bandwidth: "
                    << convert_latency_to_effective_bandwidth<T>(latency, m_M,
@@ -246,3 +250,5 @@ class TestMatrixTransposeFloat : public TestMatrixTranspose<float>
 class TestMatrixTransposeDouble : public TestMatrixTranspose<double>
 {
 };
+
+#endif // CUTE_MATRIX_TRANSPOSE_TEST_UTILS_HPP

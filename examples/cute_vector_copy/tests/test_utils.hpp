@@ -1,3 +1,6 @@
+#ifndef CUTE_VECTOR_COPY_TEST_UTILS_HPP
+#define CUTE_VECTOR_COPY_TEST_UTILS_HPP
+
 #include <iostream>
 
 #include <cuda_runtime.h>
@@ -135,7 +138,7 @@ protected:
         // Create CUDA stream.
         CHECK_CUDA_ERROR(cudaStreamCreate(&m_stream));
 
-        // Get paramater.
+        // Get parameter.
         m_size = std::get<0>(GetParam());
 
         // Use thrust to create the host and device vectors.
@@ -206,7 +209,8 @@ protected:
                                       thrust::raw_pointer_cast(m_d_src.data()),
                                       thrust::raw_pointer_cast(m_d_dst.data()),
                                       m_size, std::placeholders::_1)};
-        float const latency{measure_performance<T>(function, m_stream)};
+        float const latency{measure_performance<T>(function, m_stream,
+                                                   num_repeats, num_warmups)};
         GTEST_COUT << "Latency: " << latency << " ms" << std::endl;
         GTEST_COUT << "Effective Bandwidth: "
                    << convert_latency_to_effective_bandwidth<T>(latency, m_size)
@@ -238,3 +242,5 @@ class TestVectorCopyFloat : public TestVectorCopy<float>
 class TestVectorCopyDouble : public TestVectorCopy<double>
 {
 };
+
+#endif // CUTE_VECTOR_COPY_TEST_UTILS_HPP

@@ -1,3 +1,6 @@
+#ifndef CUTE_GENERAL_MATRIX_MULTIPLICATION_TEST_UTILS_HPP
+#define CUTE_GENERAL_MATRIX_MULTIPLICATION_TEST_UTILS_HPP
+
 #include <iostream>
 #include <random>
 
@@ -536,3 +539,5 @@ class TestGeneralMatrixMultiplicationHalfDataHalfCompute
                                              cutlass::half_t>
 {
 };
+
+#endif // CUTE_GENERAL_MATRIX_MULTIPLICATION_TEST_UTILS_HPP
