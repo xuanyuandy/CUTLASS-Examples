@@ -119,7 +119,7 @@ static __global__ void general_matrix_multiplication_tiled_copy_tiled_mma(
     __shared__ TA smem_A[cute::cosize_v<ASmemLayout>];
     __shared__ TB smem_B[cute::cosize_v<BSmemLayout>];
     // sA and sB are always column-major.
-    // TODO: Add static_assert to ensure the above conditions.
+    // TODO: Add CUTE_STATIC_ASSERT to ensure the above conditions.
     auto smem_tensor_A{cute::make_tensor(cute::make_smem_ptr(smem_A),
                                          smem_layout_A)}; // (BLK_M, BLK_K)
     auto smem_tensor_B{cute::make_tensor(cute::make_smem_ptr(smem_B),
@@ -398,7 +398,7 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
             (cute::size<0>(thread_layout_A) * cute::size<0>(vector_layout_A)) ==
         cute::Int<0>{}); // BLK_M % (THR_M * NUM_VECTOR_ELEMENTS_A) == 0
 
-    auto const NUM_VECTOR_ELEMENTS_B{sizeof(VectorTypeB) / sizeof(TB)};
+    constexpr auto NUM_VECTOR_ELEMENTS_B{sizeof(VectorTypeB) / sizeof(TB)};
     auto const vector_shape_B{
         cute::make_shape(cute::Int<NUM_VECTOR_ELEMENTS_B>{},
                          cute::Int<1>{})}; // (NUM_VECTOR_ELEMENTS_B, 1)
