@@ -3,8 +3,6 @@
 #include <iomanip>
 #include <iostream>
 
-#include <cuda_runtime.h>
-
 #include <cute/layout.hpp>
 #include <cute/swizzle.hpp>
 #include <cute/tensor.hpp>
