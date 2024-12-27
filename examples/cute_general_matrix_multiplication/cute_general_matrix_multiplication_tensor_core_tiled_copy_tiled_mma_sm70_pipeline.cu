@@ -148,8 +148,29 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
             (cute::size<0>(thread_layout_B) * cute::size<0>(vector_layout_B)) ==
         cute::Int<0>{}); // BLK_N % (THR_N * NUM_VECTOR_ELEMENTS_B) == 0
 
-    auto mma{cute::make_tiled_mma(cute::UniversalFMA<TA, TB, TC>{},
-                                  thread_layout_C)};
+    // Somehow using SM70 Tensor Core MMA is much slower than using
+    // UniversalFMA. Configure SM70 Tensor Core MMA. auto
+    // mma_atom{cute::MMA_Atom<cute::SM70_8x8x4_F16F16F16F16_NT>{}}; auto
+    // mma_layout{cute::make_layout(
+    //     cute::make_shape(cute::Int<8>{}, cute::Int<4>{}),
+    //     cute::make_stride(cute::Int<4>{}, cute::Int<1>{}))};
+    // auto mma{cute::make_tiled_mma(mma_atom, mma_layout)};
+
+    // auto mma{cute::make_tiled_mma(cute::UniversalFMA<TA, TB, TC>{},
+    //                               thread_layout_C)};
+
+    // Configure SM80 Tensor Core MMA.
+    auto mma_atom{cute::MMA_Atom<cute::SM80_16x8x16_F16F16F16F16_TN>{}};
+    auto mma_layout{
+        cute::make_layout(cute::make_shape(cute::Int<4>{}, cute::Int<2>{}),
+                          cute::make_stride(cute::Int<1>{}, cute::Int<4>{}))};
+    auto mma{cute::make_tiled_mma(mma_atom, mma_layout)};
+
+    CUTE_STATIC_ASSERT_V(cute::size(mma) == cute::size(thread_layout_C));
+    // Static assert types because of the MMA instruction.
+    CUTE_STATIC_ASSERT(std::is_same_v<TA, cute::half_t>);
+    CUTE_STATIC_ASSERT(std::is_same_v<TB, cute::half_t>);
+    CUTE_STATIC_ASSERT(std::is_same_v<TC, cute::half_t>);
 
     // Swizzle parameters.
     constexpr int NUM_BASE_BITS_A{constexpr_log2(NUM_VECTOR_ELEMENTS_A)};
@@ -182,8 +203,9 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
     dim3 const grid_dims{
         static_cast<unsigned int>(cute::size(cute::ceil_div(M, bM))),
         static_cast<unsigned int>(cute::size(cute::ceil_div(N, bN)))};
-    general_matrix_multiplication_tiled_copy_tiled_mma<<<grid_dims, block_dims,
-                                                         0, stream>>>(
+    // Performance reduced using SM80 MMA atom and SM70 pipeline.
+    general_matrix_multiplication_tiled_copy_tiled_mma_sm70_pipeline<<<
+        grid_dims, block_dims, 0, stream>>>(
         gemm_shape, cta_tiler, A, stride_A, smem_layout_A_swizzled,
         thread_layout_A, copy_A, B, stride_B, smem_layout_B_swizzled,
         thread_layout_B, copy_B, C, stride_C, smem_layout_C, thread_layout_C,
@@ -309,11 +331,10 @@ static cudaError_t gemm_tt(int m, int n, int k, Alpha alpha, TA const* A,
 }
 
 template <class TA, class TB, class TC, class Alpha, class Beta>
-cudaError_t
-launch_gemm_naive_tiled_copy_tiled_mma(char transA, char transB, int m, int n,
-                                       int k, Alpha alpha, TA const* A, int ldA,
-                                       TB const* B, int ldB, Beta beta, TC* C,
-                                       int ldC, cudaStream_t stream)
+cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma_sm70_pipeline(
+    char transA, char transB, int m, int n, int k, Alpha alpha, TA const* A,
+    int ldA, TB const* B, int ldB, Beta beta, TC* C, int ldC,
+    cudaStream_t stream)
 {
     // To ensure vectorized memory access, the values of m, n, and k are
     // constrained to be:
@@ -360,25 +381,13 @@ launch_gemm_naive_tiled_copy_tiled_mma(char transA, char transB, int m, int n,
 }
 
 // Explicit instantiation
-template cudaError_t
-launch_gemm_naive_tiled_copy_tiled_mma<float, float, float, float, float>(
-    char transA, char transB, int m, int n, int k, float alpha, float const* A,
-    int ldA, float const* B, int ldB, float beta, float* C, int ldC,
-    cudaStream_t stream);
-template cudaError_t
-launch_gemm_naive_tiled_copy_tiled_mma<double, double, double, double, double>(
-    char transA, char transB, int m, int n, int k, double alpha,
-    double const* A, int ldA, double const* B, int ldB, double beta, double* C,
-    int ldC, cudaStream_t stream);
-template cudaError_t
-launch_gemm_naive_tiled_copy_tiled_mma<cute::half_t, cute::half_t, cute::half_t,
-                                       float, float>(
+template cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma_sm70_pipeline<
+    cute::half_t, cute::half_t, cute::half_t, float, float>(
     char transA, char transB, int m, int n, int k, float alpha,
     cute::half_t const* A, int ldA, cute::half_t const* B, int ldB, float beta,
     cute::half_t* C, int ldC, cudaStream_t stream);
-template cudaError_t
-launch_gemm_naive_tiled_copy_tiled_mma<cute::half_t, cute::half_t, cute::half_t,
-                                       cute::half_t, cute::half_t>(
+template cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma_sm70_pipeline<
+    cute::half_t, cute::half_t, cute::half_t, cute::half_t, cute::half_t>(
     char transA, char transB, int m, int n, int k, cute::half_t alpha,
     cute::half_t const* A, int ldA, cute::half_t const* B, int ldB,
     cute::half_t beta, cute::half_t* C, int ldC, cudaStream_t stream);
