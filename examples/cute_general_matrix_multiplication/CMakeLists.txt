@@ -10,6 +10,7 @@ add_library(
     SHARED
     cute_general_matrix_multiplication_naive.cu
     cute_general_matrix_multiplication_naive_tiled_copy_tiled_mma.cu
+    cute_general_matrix_multiplication_naive_tiled_copy_tiled_mma_sm70_pipeline.cu
     cute_general_matrix_multiplication_tensor_core_tiled_copy_tiled_mma.cu
 )
 target_include_directories(${CUTE_GENERAL_MATRIX_MULTIPLICATION} PRIVATE ${CUTLASS_INCLUDE_DIR} ${CUTLASS_UTILS_INCLUDE_DIR})
