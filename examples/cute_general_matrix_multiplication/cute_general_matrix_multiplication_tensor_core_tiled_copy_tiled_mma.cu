@@ -8,6 +8,7 @@
 
 #include "cute_general_matrix_multiplication.cuh"
 #include "cute_general_matrix_multiplication.hpp"
+// #include "cute_general_matrix_multiplication_config.cuh"
 
 constexpr int constexpr_log2(int n)
 {
@@ -29,8 +30,8 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
     auto const gemm_shape{cute::make_shape(M, N, K)}; // (M, N, K)
 
     // Define CTA size.
-    auto const bM{cute::Int<128 * 4 / sizeof(TA)>{}};
-    auto const bN{cute::Int<128 * 4 / sizeof(TB)>{}};
+    auto const bM{cute::Int<128 * 2 / sizeof(TA)>{}};
+    auto const bN{cute::Int<128 * 2 / sizeof(TB)>{}};
     auto const bK{cute::Int<32>{}};
     auto const cta_tiler{cute::make_shape(bM, bN, bK)}; // (BLK_M, BLK_N, BLK_K)
 
@@ -56,11 +57,11 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
 
     // Define thread layouts.
     auto const thread_shape_A{
-        cute::make_shape(cute::Int<32>{}, cute::Int<8>{})}; // (THR_M, THR_K)
+        cute::make_shape(cute::Int<16>{}, cute::Int<8>{})}; // (THR_M, THR_K)
     auto const thread_shape_B{
-        cute::make_shape(cute::Int<32>{}, cute::Int<8>{})}; // (THR_N, THR_K)
+        cute::make_shape(cute::Int<16>{}, cute::Int<8>{})}; // (THR_N, THR_K)
     auto const thread_shape_C{
-        cute::make_shape(cute::Int<16>{}, cute::Int<16>{})}; // (THR_M, THR_N)
+        cute::make_shape(cute::Int<32>{}, cute::Int<4>{})}; // (THR_M, THR_N)
     auto const thread_stride_A{cute::make_stride(
         cute::Int<1>{}, cute::size<0>(thread_shape_A))}; // column-major
     auto const thread_stride_B{cute::make_stride(
@@ -160,11 +161,29 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
     //                               thread_layout_C)};
 
     // Configure SM80 Tensor Core MMA.
-    auto mma_atom{cute::MMA_Atom<cute::SM80_16x8x16_F16F16F16F16_TN>{}};
-    auto mma_layout{
-        cute::make_layout(cute::make_shape(cute::Int<4>{}, cute::Int<2>{}),
-                          cute::make_stride(cute::Int<1>{}, cute::Int<4>{}))};
-    auto mma{cute::make_tiled_mma(mma_atom, mma_layout)};
+    using MmaTraits = cute::MMA_Traits<cute::SM80_16x8x16_F16F16F16F16_TN>;
+    using MmaAtomShape = MmaTraits::Shape_MNK;
+    auto const mma_atom{cute::MMA_Atom<MmaTraits>{}};
+    auto const mma_atom_shape{MmaAtomShape{}};
+    constexpr int MMA_LAYOUT_M{2};
+    constexpr int MMA_LAYOUT_N{2};
+    constexpr int MMA_LAYOUT_K{1};
+    auto mma_layout{cute::make_layout(
+        cute::make_shape(cute::Int<MMA_LAYOUT_M>{}, cute::Int<MMA_LAYOUT_N>{},
+                         cute::Int<MMA_LAYOUT_K>{}))};
+    constexpr int NUM_MMA_TILE_M{1};
+    constexpr int NUM_MMA_TILE_N{2};
+    constexpr int NUM_MMA_TILE_K{1};
+    constexpr int MMA_TILE_M{cute::get<0>(mma_atom_shape) * MMA_LAYOUT_M *
+                             NUM_MMA_TILE_M};
+    constexpr int MMA_TILE_N{cute::get<1>(mma_atom_shape) * MMA_LAYOUT_N *
+                             NUM_MMA_TILE_N};
+    constexpr int MMA_TILE_K{cute::get<2>(mma_atom_shape) * MMA_LAYOUT_K *
+                             NUM_MMA_TILE_K};
+    auto mma_tile{cute::make_tile(cute::Int<MMA_TILE_M>{},
+                                  cute::Int<MMA_TILE_N>{},
+                                  cute::Int<MMA_TILE_K>{})};
+    auto mma{cute::make_tiled_mma(mma_atom, mma_layout, mma_tile)};
 
     CUTE_STATIC_ASSERT_V(cute::size(mma) == cute::size(thread_layout_C));
     // Static assert types because of the MMA instruction.

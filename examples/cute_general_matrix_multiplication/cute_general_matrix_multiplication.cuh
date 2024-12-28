@@ -16,8 +16,8 @@ __global__ void general_matrix_multiplication_tiled_copy_tiled_mma(
     ProblemShape shape_MNK, CtaTiler cta_tiler, TA const* A, AStride stride_A,
     ASmemLayout smem_layout_A, AThreadLayout, TiledCopyA copy_A, TB const* B,
     BStride stride_B, BSmemLayout smem_layout_B, BThreadLayout,
-    TiledCopyB copy_B, TC* C, CStride stride_C, CSmemLayout,
-    CThreadLayout thread_layout_C, TiledMMA mma, Alpha alpha, Beta beta)
+    TiledCopyB copy_B, TC* C, CStride stride_C, CSmemLayout, CThreadLayout,
+    TiledMMA mma, Alpha alpha, Beta beta)
 {
     CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{}); // (M, N, K)
     CUTE_STATIC_ASSERT_V(cute::rank(cta_tiler) ==
@@ -286,8 +286,8 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm70_pipeline(
     ProblemShape shape_MNK, CtaTiler cta_tiler, TA const* A, AStride stride_A,
     ASmemLayout smem_layout_A, AThreadLayout, TiledCopyA copy_A, TB const* B,
     BStride stride_B, BSmemLayout smem_layout_B, BThreadLayout,
-    TiledCopyB copy_B, TC* C, CStride stride_C, CSmemLayout,
-    CThreadLayout thread_layout_C, TiledMMA mma, Alpha alpha, Beta beta)
+    TiledCopyB copy_B, TC* C, CStride stride_C, CSmemLayout, CThreadLayout,
+    TiledMMA mma, Alpha alpha, Beta beta)
 {
     CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{}); // (M, N, K)
     CUTE_STATIC_ASSERT_V(cute::rank(cta_tiler) ==
