@@ -6,7 +6,7 @@ These examples demonstrate the implementation of general matrix transpose kernel
 
 The pipelining optimization for general matrix multiplication remains to be implemented.
 
-The performance was mainly optimized for the NT case where the matrix A is a M x K column-major matrix, the matrix B is a K x N row-major matrix, and the matrix C is a M x N column-major matrix. I will try coming up with a general implementation that optimizes for all the NN, NT, TN, and TT cases in the future.
+The performance was mainly optimized for the NT case where the matrix A is a M x K column-major matrix, the matrix B is a K x N row-major matrix, and the matrix C is a M x N column-major matrix. I will try coming up with a general implementation that optimizes for all the NN, NT, TN, and TT cases in the future. An idea is to use shared memory layouts that are compatible with the global memory layouts so that global memory vectorized access can always be enabled.
 
 ## Usages
 
