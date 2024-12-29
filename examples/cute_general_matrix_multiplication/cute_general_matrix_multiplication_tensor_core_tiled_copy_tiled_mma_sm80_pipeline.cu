@@ -355,7 +355,7 @@ static cudaError_t gemm_tt(int m, int n, int k, Alpha alpha, TA const* A,
 }
 
 template <class TA, class TB, class TC, class Alpha, class Beta>
-cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma_sm70_pipeline(
+cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma_sm80_pipeline(
     char transA, char transB, int m, int n, int k, Alpha alpha, TA const* A,
     int ldA, TB const* B, int ldB, Beta beta, TC* C, int ldC,
     cudaStream_t stream)
@@ -405,12 +405,12 @@ cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma_sm70_pipeline(
 }
 
 // Explicit instantiation
-template cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma_sm70_pipeline<
+template cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma_sm80_pipeline<
     cute::half_t, cute::half_t, cute::half_t, float, float>(
     char transA, char transB, int m, int n, int k, float alpha,
     cute::half_t const* A, int ldA, cute::half_t const* B, int ldB, float beta,
     cute::half_t* C, int ldC, cudaStream_t stream);
-template cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma_sm70_pipeline<
+template cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma_sm80_pipeline<
     cute::half_t, cute::half_t, cute::half_t, cute::half_t, cute::half_t>(
     char transA, char transB, int m, int n, int k, cute::half_t alpha,
     cute::half_t const* A, int ldA, cute::half_t const* B, int ldB,
