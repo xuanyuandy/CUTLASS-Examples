@@ -227,31 +227,39 @@ __global__ void general_matrix_multiplication_tiled_copy_tiled_mma(
         cute::clear(thread_layout_B_smem_tensor_B);
 
         CUTE_UNROLL
-        for (auto copy_k_idx{0}; copy_k_idx < cute::size<2>(thread_layout_A_identity_tensor_A); ++copy_k_idx)
+        for (auto copy_k_idx{0};
+             copy_k_idx < cute::size<2>(thread_layout_A_identity_tensor_A);
+             ++copy_k_idx)
         {
             // Check the K dimension.
-            if (cute::get<1>(thread_layout_A_identity_tensor_A(0, 0, copy_k_idx)) +
+            if (cute::get<1>(
+                    thread_layout_A_identity_tensor_A(0, 0, copy_k_idx)) +
                     tile_idx_k * cute::size<1>(smem_tensor_A) <
                 cute::size<2>(shape_MNK))
             {
                 cute::copy_if(copy_A, thread_layout_A_predicate_tensor_A,
-                            thread_layout_A_global_block_tensor_A(
-                                cute::_, cute::_, copy_k_idx, tile_idx_k),
-                            thread_layout_A_smem_tensor_A(cute::_, cute::_, copy_k_idx));
+                              thread_layout_A_global_block_tensor_A(
+                                  cute::_, cute::_, copy_k_idx, tile_idx_k),
+                              thread_layout_A_smem_tensor_A(cute::_, cute::_,
+                                                            copy_k_idx));
             }
         }
         CUTE_UNROLL
-        for (auto copy_k_idx{0}; copy_k_idx < cute::size<2>(thread_layout_B_identity_tensor_B); ++copy_k_idx)
+        for (auto copy_k_idx{0};
+             copy_k_idx < cute::size<2>(thread_layout_B_identity_tensor_B);
+             ++copy_k_idx)
         {
             // Check the K dimension.
-            if (cute::get<1>(thread_layout_B_identity_tensor_B(0, 0, copy_k_idx)) +
+            if (cute::get<1>(
+                    thread_layout_B_identity_tensor_B(0, 0, copy_k_idx)) +
                     tile_idx_k * cute::size<1>(smem_tensor_B) <
                 cute::size<2>(shape_MNK))
             {
                 cute::copy_if(copy_B, thread_layout_B_predicate_tensor_B,
-                            thread_layout_B_global_block_tensor_B(
-                                cute::_, cute::_, copy_k_idx, tile_idx_k),
-                            thread_layout_B_smem_tensor_B(cute::_, cute::_, copy_k_idx));
+                              thread_layout_B_global_block_tensor_B(
+                                  cute::_, cute::_, copy_k_idx, tile_idx_k),
+                              thread_layout_B_smem_tensor_B(cute::_, cute::_,
+                                                            copy_k_idx));
             }
         }
 
@@ -509,7 +517,9 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm70_pipeline(
     cute::clear(thread_layout_B_register_tensor_B);
     // Need predicates for bounds checking.
     CUTE_UNROLL
-    for (auto copy_k_idx{0}; copy_k_idx < cute::size<2>(thread_layout_A_identity_tensor_A); ++copy_k_idx)
+    for (auto copy_k_idx{0};
+         copy_k_idx < cute::size<2>(thread_layout_A_identity_tensor_A);
+         ++copy_k_idx)
     {
         // Check the K dimension.
         if (cute::get<1>(thread_layout_A_identity_tensor_A(0, 0, copy_k_idx)) +
@@ -517,13 +527,16 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm70_pipeline(
             cute::size<2>(shape_MNK))
         {
             cute::copy_if(copy_A, thread_layout_A_predicate_tensor_A,
-                        thread_layout_A_global_block_tensor_A(
-                            cute::_, cute::_, copy_k_idx, 0),
-                        thread_layout_A_register_tensor_A(cute::_, cute::_, copy_k_idx));
+                          thread_layout_A_global_block_tensor_A(
+                              cute::_, cute::_, copy_k_idx, 0),
+                          thread_layout_A_register_tensor_A(cute::_, cute::_,
+                                                            copy_k_idx));
         }
     }
     CUTE_UNROLL
-    for (auto copy_k_idx{0}; copy_k_idx < cute::size<2>(thread_layout_B_identity_tensor_B); ++copy_k_idx)
+    for (auto copy_k_idx{0};
+         copy_k_idx < cute::size<2>(thread_layout_B_identity_tensor_B);
+         ++copy_k_idx)
     {
         // Check the K dimension.
         if (cute::get<1>(thread_layout_B_identity_tensor_B(0, 0, copy_k_idx)) +
@@ -531,9 +544,10 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm70_pipeline(
             cute::size<2>(shape_MNK))
         {
             cute::copy_if(copy_B, thread_layout_B_predicate_tensor_B,
-                        thread_layout_B_global_block_tensor_B(
-                            cute::_, cute::_, copy_k_idx, 0),
-                        thread_layout_B_register_tensor_B(cute::_, cute::_, copy_k_idx));
+                          thread_layout_B_global_block_tensor_B(
+                              cute::_, cute::_, copy_k_idx, 0),
+                          thread_layout_B_register_tensor_B(cute::_, cute::_,
+                                                            copy_k_idx));
         }
     }
 
@@ -614,31 +628,43 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm70_pipeline(
                 cute::clear(thread_layout_B_register_tensor_B);
                 // Need predicates for bounds checking.
                 CUTE_UNROLL
-                for (auto copy_k_idx{0}; copy_k_idx < cute::size<2>(thread_layout_A_identity_tensor_A); ++copy_k_idx)
+                for (auto copy_k_idx{0};
+                     copy_k_idx <
+                     cute::size<2>(thread_layout_A_identity_tensor_A);
+                     ++copy_k_idx)
                 {
                     // Check the K dimension.
-                    if (cute::get<1>(thread_layout_A_identity_tensor_A(0, 0, copy_k_idx)) +
+                    if (cute::get<1>(thread_layout_A_identity_tensor_A(
+                            0, 0, copy_k_idx)) +
                             tile_idx_k_next * cute::size<1>(smem_tensor_A) <
                         cute::size<2>(shape_MNK))
                     {
-                        cute::copy_if(copy_A, thread_layout_A_predicate_tensor_A,
-                                    thread_layout_A_global_block_tensor_A(
-                                        cute::_, cute::_, copy_k_idx, tile_idx_k_next),
-                                    thread_layout_A_register_tensor_A(cute::_, cute::_, copy_k_idx));
+                        cute::copy_if(
+                            copy_A, thread_layout_A_predicate_tensor_A,
+                            thread_layout_A_global_block_tensor_A(
+                                cute::_, cute::_, copy_k_idx, tile_idx_k_next),
+                            thread_layout_A_register_tensor_A(cute::_, cute::_,
+                                                              copy_k_idx));
                     }
                 }
                 CUTE_UNROLL
-                for (auto copy_k_idx{0}; copy_k_idx < cute::size<2>(thread_layout_B_identity_tensor_B); ++copy_k_idx)
+                for (auto copy_k_idx{0};
+                     copy_k_idx <
+                     cute::size<2>(thread_layout_B_identity_tensor_B);
+                     ++copy_k_idx)
                 {
                     // Check the K dimension.
-                    if (cute::get<1>(thread_layout_B_identity_tensor_B(0, 0, copy_k_idx)) +
+                    if (cute::get<1>(thread_layout_B_identity_tensor_B(
+                            0, 0, copy_k_idx)) +
                             tile_idx_k_next * cute::size<1>(smem_tensor_B) <
                         cute::size<2>(shape_MNK))
                     {
-                        cute::copy_if(copy_B, thread_layout_B_predicate_tensor_B,
-                                    thread_layout_B_global_block_tensor_B(
-                                        cute::_, cute::_, copy_k_idx, tile_idx_k_next),
-                                    thread_layout_B_register_tensor_B(cute::_, cute::_, copy_k_idx));
+                        cute::copy_if(
+                            copy_B, thread_layout_B_predicate_tensor_B,
+                            thread_layout_B_global_block_tensor_B(
+                                cute::_, cute::_, copy_k_idx, tile_idx_k_next),
+                            thread_layout_B_register_tensor_B(cute::_, cute::_,
+                                                              copy_k_idx));
                     }
                 }
             }
@@ -900,7 +926,8 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm80_pipeline(
     // pipeline 0 to NUM_SMEM_PIPELINES - 2. There is always one pipeline
     // asynchronous load being called in the main loop.
     CUTE_UNROLL
-    for (int pipeline_idx{0}; pipeline_idx < NUM_SMEM_PIPELINES - 1; ++pipeline_idx)
+    for (int pipeline_idx{0}; pipeline_idx < NUM_SMEM_PIPELINES - 1;
+         ++pipeline_idx)
     {
         // Copy from global memory to register for the next tile iteration.
         cute::clear(thread_layout_A_smem_tensor_A(cute::_, cute::_, cute::_,
@@ -909,31 +936,39 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm80_pipeline(
                                                   pipeline_idx));
         // Need predicates for bounds checking.
         CUTE_UNROLL
-        for (auto copy_k_idx{0}; copy_k_idx < cute::size<2>(thread_layout_A_identity_tensor_A); ++copy_k_idx)
+        for (auto copy_k_idx{0};
+             copy_k_idx < cute::size<2>(thread_layout_A_identity_tensor_A);
+             ++copy_k_idx)
         {
             // Check the K dimension.
-            if (cute::get<1>(thread_layout_A_identity_tensor_A(0, 0, copy_k_idx)) +
+            if (cute::get<1>(
+                    thread_layout_A_identity_tensor_A(0, 0, copy_k_idx)) +
                     tile_idx_next * cute::size<1>(smem_tensor_A) <
                 cute::size<2>(shape_MNK))
             {
                 cute::copy_if(copy_A, thread_layout_A_predicate_tensor_A,
-                            thread_layout_A_global_block_tensor_A(
-                                cute::_, cute::_, copy_k_idx, tile_idx_next),
-                            thread_layout_A_smem_tensor_A(cute::_, cute::_, copy_k_idx, pipeline_idx));
+                              thread_layout_A_global_block_tensor_A(
+                                  cute::_, cute::_, copy_k_idx, tile_idx_next),
+                              thread_layout_A_smem_tensor_A(
+                                  cute::_, cute::_, copy_k_idx, pipeline_idx));
             }
         }
         CUTE_UNROLL
-        for (auto copy_k_idx{0}; copy_k_idx < cute::size<2>(thread_layout_B_identity_tensor_B); ++copy_k_idx)
+        for (auto copy_k_idx{0};
+             copy_k_idx < cute::size<2>(thread_layout_B_identity_tensor_B);
+             ++copy_k_idx)
         {
             // Check the K dimension.
-            if (cute::get<1>(thread_layout_B_identity_tensor_B(0, 0, copy_k_idx)) +
+            if (cute::get<1>(
+                    thread_layout_B_identity_tensor_B(0, 0, copy_k_idx)) +
                     tile_idx_next * cute::size<1>(smem_tensor_B) <
                 cute::size<2>(shape_MNK))
             {
                 cute::copy_if(copy_B, thread_layout_B_predicate_tensor_B,
-                            thread_layout_B_global_block_tensor_B(
-                                cute::_, cute::_, copy_k_idx, tile_idx_next),
-                            thread_layout_B_smem_tensor_B(cute::_, cute::_, copy_k_idx, pipeline_idx));
+                              thread_layout_B_global_block_tensor_B(
+                                  cute::_, cute::_, copy_k_idx, tile_idx_next),
+                              thread_layout_B_smem_tensor_B(
+                                  cute::_, cute::_, copy_k_idx, pipeline_idx));
             }
         }
         cute::cp_async_fence();
@@ -1018,59 +1053,74 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm80_pipeline(
 
             // Load data to the register for the next mma iteration.
             auto const mma_idx_k_next{(mma_idx_k + cute::Int<1>{}) %
-                                    NUM_REGISTER_PIPELINES};
+                                      NUM_REGISTER_PIPELINES};
             cute::copy(thread_layout_C_smem_tensor_A_current_smem_pipeline(
-                        cute::_, cute::_, mma_idx_k_next),
-                    thread_layout_C_register_tensor_A(cute::_, cute::_,
-                                                        mma_idx_k_next));
+                           cute::_, cute::_, mma_idx_k_next),
+                       thread_layout_C_register_tensor_A(cute::_, cute::_,
+                                                         mma_idx_k_next));
             cute::copy(thread_layout_C_smem_tensor_B_current_smem_pipeline(
-                        cute::_, cute::_, mma_idx_k_next),
-                    thread_layout_C_register_tensor_B(cute::_, cute::_,
-                                                        mma_idx_k_next));
+                           cute::_, cute::_, mma_idx_k_next),
+                       thread_layout_C_register_tensor_B(cute::_, cute::_,
+                                                         mma_idx_k_next));
             // At the beginning of the tile processing, asynchronously load data
             // from global memory to shared memory for the next pipeline.
             if (mma_idx_k == 0)
             {
-                // Copy from global memory to register for the next tile iteration.
-                cute::clear(thread_layout_A_smem_tensor_A(cute::_, cute::_, cute::_,
-                                                        smem_pipeline_write));
-                cute::clear(thread_layout_B_smem_tensor_B(cute::_, cute::_, cute::_,
-                                                        smem_pipeline_write));
+                // Copy from global memory to register for the next tile
+                // iteration.
+                cute::clear(thread_layout_A_smem_tensor_A(
+                    cute::_, cute::_, cute::_, smem_pipeline_write));
+                cute::clear(thread_layout_B_smem_tensor_B(
+                    cute::_, cute::_, cute::_, smem_pipeline_write));
 
                 // Need predicates for bounds checking.
                 CUTE_UNROLL
-                for (auto copy_k_idx{0}; copy_k_idx < cute::size<2>(thread_layout_A_identity_tensor_A); ++copy_k_idx)
+                for (auto copy_k_idx{0};
+                     copy_k_idx <
+                     cute::size<2>(thread_layout_A_identity_tensor_A);
+                     ++copy_k_idx)
                 {
                     // Check the K dimension.
-                    if (cute::get<1>(thread_layout_A_identity_tensor_A(0, 0, copy_k_idx)) +
+                    if (cute::get<1>(thread_layout_A_identity_tensor_A(
+                            0, 0, copy_k_idx)) +
                             tile_idx_next * cute::size<1>(smem_tensor_A) <
                         cute::size<2>(shape_MNK))
                     {
-                        cute::copy_if(copy_A, thread_layout_A_predicate_tensor_A,
-                                    thread_layout_A_global_block_tensor_A(
-                                        cute::_, cute::_, copy_k_idx, tile_idx_next),
-                                    thread_layout_A_smem_tensor_A(cute::_, cute::_, copy_k_idx, smem_pipeline_write));
+                        cute::copy_if(
+                            copy_A, thread_layout_A_predicate_tensor_A,
+                            thread_layout_A_global_block_tensor_A(
+                                cute::_, cute::_, copy_k_idx, tile_idx_next),
+                            thread_layout_A_smem_tensor_A(cute::_, cute::_,
+                                                          copy_k_idx,
+                                                          smem_pipeline_write));
                     }
                 }
                 CUTE_UNROLL
-                for (auto copy_k_idx{0}; copy_k_idx < cute::size<2>(thread_layout_B_identity_tensor_B); ++copy_k_idx)
+                for (auto copy_k_idx{0};
+                     copy_k_idx <
+                     cute::size<2>(thread_layout_B_identity_tensor_B);
+                     ++copy_k_idx)
                 {
                     // Check the K dimension.
-                    if (cute::get<1>(thread_layout_B_identity_tensor_B(0, 0, copy_k_idx)) +
+                    if (cute::get<1>(thread_layout_B_identity_tensor_B(
+                            0, 0, copy_k_idx)) +
                             tile_idx_next * cute::size<1>(smem_tensor_B) <
                         cute::size<2>(shape_MNK))
                     {
-                        cute::copy_if(copy_B, thread_layout_B_predicate_tensor_B,
-                                    thread_layout_B_global_block_tensor_B(
-                                        cute::_, cute::_, copy_k_idx, tile_idx_next),
-                                    thread_layout_B_smem_tensor_B(cute::_, cute::_, copy_k_idx, smem_pipeline_write));
+                        cute::copy_if(
+                            copy_B, thread_layout_B_predicate_tensor_B,
+                            thread_layout_B_global_block_tensor_B(
+                                cute::_, cute::_, copy_k_idx, tile_idx_next),
+                            thread_layout_B_smem_tensor_B(cute::_, cute::_,
+                                                          copy_k_idx,
+                                                          smem_pipeline_write));
                     }
                 }
 
                 cute::cp_async_fence();
                 --num_tiles_remain;
-                // num_tiles_remain can be a negative value if the number of tiles
-                // to process is less than NUM_SMEM_PIPELINES.
+                // num_tiles_remain can be a negative value if the number of
+                // tiles to process is less than NUM_SMEM_PIPELINES.
                 if (num_tiles_remain > 0)
                 {
                     ++tile_idx_next;
@@ -1083,10 +1133,10 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm80_pipeline(
 
             // Perform mma for the current mma iteration.
             cute::gemm(
-                mma, thread_layout_C_register_tensor_A(cute::_, cute::_, mma_idx_k),
+                mma,
+                thread_layout_C_register_tensor_A(cute::_, cute::_, mma_idx_k),
                 thread_layout_C_register_tensor_B(cute::_, cute::_, mma_idx_k),
                 thread_layout_C_register_tensor_C);
-
         }
     }
 
