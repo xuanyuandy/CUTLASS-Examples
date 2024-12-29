@@ -12,10 +12,8 @@ static auto const LAUNCH_GENERAL_MATRIX_MULTIPLICATION_HALF_DATA_HALF_COMPUTE{
         cutlass::half_t, cutlass::half_t, cutlass::half_t, cutlass::half_t,
         cutlass::half_t>};
 
-// static auto const TRANS_A_VALUES{::testing::Values('T', 'N')};
-// static auto const TRANS_B_VALUES{::testing::Values('T', 'N')};
-static auto const TRANS_A_VALUES{::testing::Values('N')};
-static auto const TRANS_B_VALUES{::testing::Values('T')};
+static auto const TRANS_A_VALUES{::testing::Values('T', 'N')};
+static auto const TRANS_B_VALUES{::testing::Values('T', 'N')};
 static auto const M_VALUES{::testing::Values(4096)};
 static auto const N_VALUES{::testing::Values(4096)};
 static auto const K_VALUES{::testing::Values(4096)};

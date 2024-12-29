@@ -15,7 +15,8 @@ constexpr int constexpr_log2(int n)
 }
 
 template <class TA, class TB, class TC, class Alpha, class Beta, class AStride,
-          class BStride, class CStride, class VectorTypeA, class VectorTypeB>
+          class BStride, class CStride, class VectorTypeA, class VectorTypeB,
+          class VectorCopyOperationA, class VectorCopyOperationB>
 static cudaError_t
 gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
                                int ldA, TB const* B, int ldB, Beta beta, TC* C,
@@ -124,8 +125,7 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
     auto const vector_layout_A{cute::make_layout(
         vector_shape_A, vector_stride_A)}; // (NUM_VECTOR_ELEMENTS_A, 1)
     auto copy_A{cute::make_tiled_copy(
-        cute::Copy_Atom<cute::SM80_CP_ASYNC_CACHEALWAYS<VectorTypeA>, TA>{},
-        thread_layout_A,
+        cute::Copy_Atom<VectorCopyOperationA, TA>{}, thread_layout_A,
         vector_layout_A)}; // Thread layout: (THR_M, THR_K) Value layout:
                            // (NUM_VECTOR_ELEMENTS_A, 1)
     CUTE_STATIC_ASSERT_V(
@@ -142,8 +142,7 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
     auto const vector_layout_B{cute::make_layout(
         vector_shape_B, vector_stride_B)}; // (NUM_VECTOR_ELEMENTS_B, 1)
     auto copy_B{cute::make_tiled_copy(
-        cute::Copy_Atom<cute::SM80_CP_ASYNC_CACHEALWAYS<VectorTypeB>, TB>{},
-        thread_layout_B,
+        cute::Copy_Atom<VectorCopyOperationB, TB>{}, thread_layout_B,
         vector_layout_B)}; // Thread layout: (THR_N, THR_K) Value layout:
                            // (NUM_VECTOR_ELEMENTS_B, 1)
     CUTE_STATIC_ASSERT_V(
@@ -195,12 +194,19 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
 
     // Swizzle parameters.
     constexpr int NUM_BASE_BITS_A{constexpr_log2(NUM_VECTOR_ELEMENTS_A)};
-    constexpr int NUM_MASK_BITS_A{constexpr_log2(32 * 4 / sizeof(TA)) -
+    // This does not seem to work for TA = cute::half_t and pipeline is used
+    // (shared memory layout becomes 3D). constexpr int
+    // NUM_MASK_BITS_A{constexpr_log2(32 * 4 / sizeof(TA)) - NUM_BASE_BITS_A};
+    // Need to investigate why this does not work.
+    constexpr int NUM_MASK_BITS_A{constexpr_log2(32 * 2 / sizeof(TA)) -
                                   NUM_BASE_BITS_A};
     constexpr int NUM_SHIFT_BITS_A{constexpr_log2(bM) - NUM_BASE_BITS_A};
 
     constexpr int NUM_BASE_BITS_B{constexpr_log2(NUM_VECTOR_ELEMENTS_B)};
-    constexpr int NUM_MASK_BITS_B{constexpr_log2(32 * 4 / sizeof(TB)) -
+    // This does not seem to work for TB = cute::half_t and pipeline is used
+    // (shared memory layout becomes 3D). constexpr int
+    // NUM_MASK_BITS_B{constexpr_log2(32 * 4 / sizeof(TB)) - NUM_BASE_BITS_B};
+    constexpr int NUM_MASK_BITS_B{constexpr_log2(32 * 2 / sizeof(TB)) -
                                   NUM_BASE_BITS_B};
     constexpr int NUM_SHIFT_BITS_B{constexpr_log2(bN) - NUM_BASE_BITS_B};
 
@@ -234,33 +240,34 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
     return cudaGetLastError();
 }
 
-// // The shape of A is (M, K) and the shape of B is (K, N).
-// // Then A is (M, K) column-major and B is (K, N) column-major.
-// // Then A is (M, K) column-major and B is (N, K) row-major.
-// template <class TA, class TB, class TC, class Alpha, class Beta>
-// static cudaError_t gemm_nn(int m, int n, int k, Alpha alpha, TA const* A,
-//                            int ldA, TB const* B, int ldB, Beta beta, TC* C,
-//                            int ldC, cudaStream_t stream)
-// {
-//     // Define global memory layouts.
-//     // A is (M, K) column-major.
-//     auto const stride_A{cute::make_stride(cute::Int<1>{}, ldA)}; //
-//     column-major
-//     // B is (N, K) row-major.
-//     auto const stride_B{cute::make_stride(ldB, cute::Int<1>{})}; // row-major
-//     // C is (M, N) column-major.
-//     auto const stride_C{cute::make_stride(cute::Int<1>{}, ldC)}; //
-//     column-major
+// The shape of A is (M, K) and the shape of B is (K, N).
+// Then A is (M, K) column-major and B is (K, N) column-major.
+// Then A is (M, K) column-major and B is (N, K) row-major.
+template <class TA, class TB, class TC, class Alpha, class Beta>
+static cudaError_t gemm_nn(int m, int n, int k, Alpha alpha, TA const* A,
+                           int ldA, TB const* B, int ldB, Beta beta, TC* C,
+                           int ldC, cudaStream_t stream)
+{
+    // Define global memory layouts.
+    // A is (M, K) column-major.
+    auto const stride_A{cute::make_stride(cute::Int<1>{}, ldA)}; // column-major
+    // B is (N, K) row-major.
+    auto const stride_B{cute::make_stride(ldB, cute::Int<1>{})}; // row-major
+    // C is (M, N) column-major.
+    auto const stride_C{cute::make_stride(cute::Int<1>{}, ldC)}; // column-major
 
-//     using VectorTypeA = cute::uint128_t;
-//     using VectorTypeB = TB;
+    using VectorTypeA = cute::uint128_t;
+    using VectorTypeB = TB;
+    using CopyOperationA = cute::SM80_CP_ASYNC_CACHEALWAYS<VectorTypeA>;
+    // cute::SM80_CP_ASYNC_CACHEALWAYS<cute::half_t> is not supported.
+    using CopyOperationB = cute::UniversalCopy<VectorTypeB>;
 
-//     return gemm_base_tiled_copy_tiled_mma<
-//         TA, TB, TC, Alpha, Beta, decltype(stride_A), decltype(stride_B),
-//         decltype(stride_C), VectorTypeA, VectorTypeB>(
-//         m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A, stride_B,
-//         stride_C, stream);
-// }
+    return gemm_base_tiled_copy_tiled_mma<
+        TA, TB, TC, Alpha, Beta, decltype(stride_A), decltype(stride_B),
+        decltype(stride_C), VectorTypeA, VectorTypeB, CopyOperationA,
+        CopyOperationB>(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A,
+                        stride_B, stride_C, stream);
+}
 
 // The shape of A is (M, K) and the shape of transposed B is (K, N).
 // Then A is (M, K) column-major and B is (N, K) column-major.
@@ -281,85 +288,71 @@ static cudaError_t gemm_nt(int m, int n, int k, Alpha alpha, TA const* A,
 
     using VectorTypeA = cute::uint128_t;
     using VectorTypeB = cute::uint128_t;
+    using CopyOperationA = cute::SM80_CP_ASYNC_CACHEALWAYS<VectorTypeA>;
+    using CopyOperationB = cute::SM80_CP_ASYNC_CACHEALWAYS<VectorTypeB>;
 
     return gemm_base_tiled_copy_tiled_mma<
         TA, TB, TC, Alpha, Beta, decltype(stride_A), decltype(stride_B),
-        decltype(stride_C), VectorTypeA, VectorTypeB>(
-        m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A, stride_B,
-        stride_C, stream);
+        decltype(stride_C), VectorTypeA, VectorTypeB, CopyOperationA,
+        CopyOperationB>(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A,
+                        stride_B, stride_C, stream);
 }
 
-// // The shape of transposed A is (M, K) and the shape of B is (K, N).
-// // Then A is (K, M) column-major and B is (K, N) column-major.
-// // Then A is (M, K) row-major and B is (N, K) row-major.
-// template <class TA, class TB, class TC, class Alpha, class Beta>
-// static cudaError_t gemm_tn(int m, int n, int k, Alpha alpha, TA const* A,
-//                            int ldA, TB const* B, int ldB, Beta beta, TC* C,
-//                            int ldC, cudaStream_t stream)
-// {
-//     // Define global memory layouts.
-//     // A is (M, K) row-major.
-//     auto const stride_A{cute::make_stride(ldA, cute::Int<1>{})}; // row-major
-//     // B is (N, K) row-major.
-//     auto const stride_B{cute::make_stride(ldB, cute::Int<1>{})}; // row-major
-//     // C is (M, N) column-major.
-//     auto const stride_C{cute::make_stride(cute::Int<1>{}, ldC)}; //
-//     column-major
+// The shape of transposed A is (M, K) and the shape of B is (K, N).
+// Then A is (K, M) column-major and B is (K, N) column-major.
+// Then A is (M, K) row-major and B is (N, K) row-major.
+template <class TA, class TB, class TC, class Alpha, class Beta>
+static cudaError_t gemm_tn(int m, int n, int k, Alpha alpha, TA const* A,
+                           int ldA, TB const* B, int ldB, Beta beta, TC* C,
+                           int ldC, cudaStream_t stream)
+{
+    // Define global memory layouts.
+    // A is (M, K) row-major.
+    auto const stride_A{cute::make_stride(ldA, cute::Int<1>{})}; // row-major
+    // B is (N, K) row-major.
+    auto const stride_B{cute::make_stride(ldB, cute::Int<1>{})}; // row-major
+    // C is (M, N) column-major.
+    auto const stride_C{cute::make_stride(cute::Int<1>{}, ldC)}; // column-major
 
-//     // Because the shared memory layout is (BLK_M, BLK_K) column-major and
-//     // the global memory layout is (M, K) row-major, a transpose is needed
-//     and
-//     // vectorized memory copy is not possible. This transpose will result in
-//     // shared memory bank conflicts if not padding or swizzling is used.
-//     Another
-//     // strategy is to make the shared memory layout (BLK_M, BLK_K) row-major
-//     and
-//     // then we could perform vectorized memory copy. However, even with
-//     // swizzling or padding, there are can still be shared memory bank
-//     // conflicts. See https://leimao.github.io/blog/CuTe-Swizzle/ for more
-//     // information. So it is matter of experimentation to find the best
-//     strategy
-//     // for a specific problem. For this example, we will use the first
-//     strategy
-//     // without thoroughly investigating which strategy is better.
-//     using VectorTypeA = TA;
-//     using VectorTypeB = TB;
+    using VectorTypeA = TA;
+    using VectorTypeB = TB;
+    using CopyOperationA = cute::UniversalCopy<VectorTypeA>;
+    using CopyOperationB = cute::UniversalCopy<VectorTypeB>;
 
-//     return gemm_base_tiled_copy_tiled_mma<
-//         TA, TB, TC, Alpha, Beta, decltype(stride_A), decltype(stride_B),
-//         decltype(stride_C), VectorTypeA, VectorTypeB>(
-//         m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A, stride_B,
-//         stride_C, stream);
-// }
+    return gemm_base_tiled_copy_tiled_mma<
+        TA, TB, TC, Alpha, Beta, decltype(stride_A), decltype(stride_B),
+        decltype(stride_C), VectorTypeA, VectorTypeB, CopyOperationA,
+        CopyOperationB>(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A,
+                        stride_B, stride_C, stream);
+}
 
-// // The shape of transposed A is (M, K) and the shape of transposed B is (K,
-// N).
-// //    Then A is (K, M) column-major and B is (N, K) column-major.
-// //    Then A is (M, K) row-major and B is (N, K) column-major.
-// template <class TA, class TB, class TC, class Alpha, class Beta>
-// static cudaError_t gemm_tt(int m, int n, int k, Alpha alpha, TA const* A,
-//                            int ldA, TB const* B, int ldB, Beta beta, TC* C,
-//                            int ldC, cudaStream_t stream)
-// {
-//     // Define global memory layouts.
-//     // A is (M, K) row-major.
-//     auto const stride_A{cute::make_stride(ldA, cute::Int<1>{})}; // row-major
-//     // B is (N, K) column-major.
-//     auto const stride_B{cute::make_stride(cute::Int<1>{}, ldB)}; //
-//     column-major
-//     // C is (M, N) column-major.
-//     auto const stride_C{cute::make_stride(cute::Int<1>{}, ldC)}; //
-//     column-major
+// The shape of transposed A is (M, K) and the shape of transposed B is (K, N).
+//    Then A is (K, M) column-major and B is (N, K) column-major.
+//    Then A is (M, K) row-major and B is (N, K) column-major.
+template <class TA, class TB, class TC, class Alpha, class Beta>
+static cudaError_t gemm_tt(int m, int n, int k, Alpha alpha, TA const* A,
+                           int ldA, TB const* B, int ldB, Beta beta, TC* C,
+                           int ldC, cudaStream_t stream)
+{
+    // Define global memory layouts.
+    // A is (M, K) row-major.
+    auto const stride_A{cute::make_stride(ldA, cute::Int<1>{})}; // row-major
+    // B is (N, K) column-major.
+    auto const stride_B{cute::make_stride(cute::Int<1>{}, ldB)}; // column-major
+    // C is (M, N) column-major.
+    auto const stride_C{cute::make_stride(cute::Int<1>{}, ldC)}; // column-major
 
-//     using VectorTypeA = TA;
-//     using VectorTypeB = cute::uint128_t;
+    using VectorTypeA = TA;
+    using VectorTypeB = cute::uint128_t;
+    using CopyOperationA = cute::UniversalCopy<VectorTypeA>;
+    using CopyOperationB = cute::SM80_CP_ASYNC_CACHEALWAYS<VectorTypeB>;
 
-//     return gemm_base_tiled_copy_tiled_mma<
-//         TA, TB, TC, Alpha, Beta, decltype(stride_A), decltype(stride_B),
-//         decltype(stride_C), VectorTypeA, VectorTypeB>(
-//         m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A, stride_B,
-//         stride_C, stream);
-// }
+    return gemm_base_tiled_copy_tiled_mma<
+        TA, TB, TC, Alpha, Beta, decltype(stride_A), decltype(stride_B),
+        decltype(stride_C), VectorTypeA, VectorTypeB, CopyOperationA,
+        CopyOperationB>(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A,
+                        stride_B, stride_C, stream);
+}
 
 template <class TA, class TB, class TC, class Alpha, class Beta>
 cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma_sm70_pipeline(
@@ -393,18 +386,18 @@ cudaError_t launch_gemm_tensor_core_tiled_copy_tiled_mma_sm70_pipeline(
     {
         return gemm_nt(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
     }
-    // else if (transA == 'N' && transB == 'N')
-    // {
-    //     return gemm_nn(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
-    // }
-    // else if (transA == 'T' && transB == 'N')
-    // {
-    //     return gemm_tn(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
-    // }
-    // else if (transA == 'T' && transB == 'T')
-    // {
-    //     return gemm_tt(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
-    // }
+    else if (transA == 'N' && transB == 'N')
+    {
+        return gemm_nn(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
+    }
+    else if (transA == 'T' && transB == 'N')
+    {
+        return gemm_tn(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
+    }
+    else if (transA == 'T' && transB == 'T')
+    {
+        return gemm_tt(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stream);
+    }
     else
     {
         return cudaErrorNotSupported;
