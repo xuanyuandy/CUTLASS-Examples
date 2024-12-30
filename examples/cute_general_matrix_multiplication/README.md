@@ -89,3 +89,6 @@ done
 ```
 
 ## References
+
+- [Cooperative GEMM - CuTe](https://github.com/NVIDIA/cutlass/blob/bf9da7b76c766d7ee7d536afc77880a4ef1f1156/include/cute/algorithm/cooperative_gemm.hpp)
+- [SM80 MMA Multi-Stage - CUTLASS](https://github.com/NVIDIA/cutlass/blob/bf9da7b76c766d7ee7d536afc77880a4ef1f1156/include/cutlass/gemm/collective/sm80_mma_multistage.hpp)

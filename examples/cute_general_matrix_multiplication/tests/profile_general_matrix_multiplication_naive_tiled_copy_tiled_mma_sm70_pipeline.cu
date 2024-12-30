@@ -5,16 +5,16 @@
 #include "cute_general_matrix_multiplication.hpp"
 
 static auto const LAUNCH_GENERAL_MATRIX_MULTIPLICATION_FLOAT{
-    launch_gemm_naive_tiled_copy_tiled_mma_sm70_pipeline<float, float, float,
-                                                         float, float>};
+    launch_gemm_naive_gmem_tiled_copy_tiled_mma_sm70_pipeline<
+        float, float, float, float, float>};
 static auto const LAUNCH_GENERAL_MATRIX_MULTIPLICATION_DOUBLE{
-    launch_gemm_naive_tiled_copy_tiled_mma_sm70_pipeline<double, double, double,
-                                                         double, double>};
+    launch_gemm_naive_gmem_tiled_copy_tiled_mma_sm70_pipeline<
+        double, double, double, double, double>};
 static auto const LAUNCH_GENERAL_MATRIX_MULTIPLICATION_HALF_DATA_FLOAT_COMPUTE{
-    launch_gemm_naive_tiled_copy_tiled_mma_sm70_pipeline<
+    launch_gemm_naive_gmem_tiled_copy_tiled_mma_sm70_pipeline<
         cutlass::half_t, cutlass::half_t, cutlass::half_t, float, float>};
 static auto const LAUNCH_GENERAL_MATRIX_MULTIPLICATION_HALF_DATA_HALF_COMPUTE{
-    launch_gemm_naive_tiled_copy_tiled_mma_sm70_pipeline<
+    launch_gemm_naive_gmem_tiled_copy_tiled_mma_sm70_pipeline<
         cutlass::half_t, cutlass::half_t, cutlass::half_t, cutlass::half_t,
         cutlass::half_t>};
 

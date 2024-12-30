@@ -309,11 +309,10 @@ static cudaError_t gemm_tt(int m, int n, int k, Alpha alpha, TA const* A,
 }
 
 template <class TA, class TB, class TC, class Alpha, class Beta>
-cudaError_t
-launch_gemm_naive_tiled_copy_tiled_mma(char transA, char transB, int m, int n,
-                                       int k, Alpha alpha, TA const* A, int ldA,
-                                       TB const* B, int ldB, Beta beta, TC* C,
-                                       int ldC, cudaStream_t stream)
+cudaError_t launch_gemm_naive_gmem_tiled_copy_tiled_mma(
+    char transA, char transB, int m, int n, int k, Alpha alpha, TA const* A,
+    int ldA, TB const* B, int ldB, Beta beta, TC* C, int ldC,
+    cudaStream_t stream)
 {
     // To ensure vectorized memory access, the values of m, n, and k are
     // constrained to be:
@@ -361,24 +360,25 @@ launch_gemm_naive_tiled_copy_tiled_mma(char transA, char transB, int m, int n,
 
 // Explicit instantiation
 template cudaError_t
-launch_gemm_naive_tiled_copy_tiled_mma<float, float, float, float, float>(
+launch_gemm_naive_gmem_tiled_copy_tiled_mma<float, float, float, float, float>(
     char transA, char transB, int m, int n, int k, float alpha, float const* A,
     int ldA, float const* B, int ldB, float beta, float* C, int ldC,
     cudaStream_t stream);
+template cudaError_t launch_gemm_naive_gmem_tiled_copy_tiled_mma<
+    double, double, double, double, double>(char transA, char transB, int m,
+                                            int n, int k, double alpha,
+                                            double const* A, int ldA,
+                                            double const* B, int ldB,
+                                            double beta, double* C, int ldC,
+                                            cudaStream_t stream);
 template cudaError_t
-launch_gemm_naive_tiled_copy_tiled_mma<double, double, double, double, double>(
-    char transA, char transB, int m, int n, int k, double alpha,
-    double const* A, int ldA, double const* B, int ldB, double beta, double* C,
-    int ldC, cudaStream_t stream);
-template cudaError_t
-launch_gemm_naive_tiled_copy_tiled_mma<cute::half_t, cute::half_t, cute::half_t,
-                                       float, float>(
+launch_gemm_naive_gmem_tiled_copy_tiled_mma<cute::half_t, cute::half_t,
+                                            cute::half_t, float, float>(
     char transA, char transB, int m, int n, int k, float alpha,
     cute::half_t const* A, int ldA, cute::half_t const* B, int ldB, float beta,
     cute::half_t* C, int ldC, cudaStream_t stream);
-template cudaError_t
-launch_gemm_naive_tiled_copy_tiled_mma<cute::half_t, cute::half_t, cute::half_t,
-                                       cute::half_t, cute::half_t>(
+template cudaError_t launch_gemm_naive_gmem_tiled_copy_tiled_mma<
+    cute::half_t, cute::half_t, cute::half_t, cute::half_t, cute::half_t>(
     char transA, char transB, int m, int n, int k, cute::half_t alpha,
     cute::half_t const* A, int ldA, cute::half_t const* B, int ldB,
     cute::half_t beta, cute::half_t* C, int ldC, cudaStream_t stream);
