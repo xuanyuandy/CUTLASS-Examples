@@ -12,7 +12,7 @@ template <class ProblemShape, class CtaTiler, class TA, class AStride,
           class BStride, class BSmemLayout, class BThreadLayout,
           class TiledCopyB, class TC, class CStride, class CSmemLayout,
           class CThreadLayout, class TiledMMA, class Alpha, class Beta>
-__global__ void general_matrix_multiplication_tiled_copy_tiled_mma(
+__global__ void general_matrix_multiplication_gmem_tiled_copy_tiled_mma(
     ProblemShape shape_MNK, CtaTiler cta_tiler, TA const* A, AStride stride_A,
     ASmemLayout smem_layout_A, AThreadLayout, TiledCopyA copy_A, TB const* B,
     BStride stride_B, BSmemLayout smem_layout_B, BThreadLayout,
@@ -294,7 +294,7 @@ template <class ProblemShape, class CtaTiler, class TA, class AStride,
           class TiledCopyB, class TC, class CStride, class CSmemLayout,
           class CThreadLayout, class TiledMMA, class Alpha, class Beta>
 __global__ void
-general_matrix_multiplication_tiled_copy_tiled_mma_sm70_pipeline(
+general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
     ProblemShape shape_MNK, CtaTiler cta_tiler, TA const* A, AStride stride_A,
     ASmemLayout smem_layout_A, AThreadLayout, TiledCopyA copy_A, TB const* B,
     BStride stride_B, BSmemLayout smem_layout_B, BThreadLayout,
@@ -691,7 +691,7 @@ template <class ProblemShape, class CtaTiler, class TA, class AStride,
           class TiledCopyB, class TC, class CStride, class CSmemLayout,
           class CThreadLayout, class TiledMMA, class Alpha, class Beta>
 __global__ void
-general_matrix_multiplication_tiled_copy_tiled_mma_sm80_pipeline(
+general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
     ProblemShape shape_MNK, CtaTiler cta_tiler, TA const* A, AStride stride_A,
     ASmemLayout smem_layout_A, AThreadLayout, TiledCopyA copy_A, TB const* B,
     BStride stride_B, BSmemLayout smem_layout_B, BThreadLayout,

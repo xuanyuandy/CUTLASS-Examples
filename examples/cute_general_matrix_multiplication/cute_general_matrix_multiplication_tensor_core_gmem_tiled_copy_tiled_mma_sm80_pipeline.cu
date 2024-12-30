@@ -17,11 +17,10 @@ constexpr int constexpr_log2(int n)
 template <class TA, class TB, class TC, class Alpha, class Beta, class AStride,
           class BStride, class CStride, class VectorTypeA, class VectorTypeB,
           class VectorCopyOperationA, class VectorCopyOperationB>
-static cudaError_t
-gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
-                               int ldA, TB const* B, int ldB, Beta beta, TC* C,
-                               int ldC, AStride stride_A, BStride stride_B,
-                               CStride stride_C, cudaStream_t stream)
+static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
+    int m, int n, int k, Alpha alpha, TA const* A, int ldA, TB const* B,
+    int ldB, Beta beta, TC* C, int ldC, AStride stride_A, BStride stride_B,
+    CStride stride_C, cudaStream_t stream)
 {
     // Define GEMM shape.
     auto const M{m};
@@ -230,7 +229,7 @@ gemm_base_tiled_copy_tiled_mma(int m, int n, int k, Alpha alpha, TA const* A,
     dim3 const grid_dims{
         static_cast<unsigned int>(cute::size(cute::ceil_div(M, bM))),
         static_cast<unsigned int>(cute::size(cute::ceil_div(N, bN)))};
-    general_matrix_multiplication_tiled_copy_tiled_mma_sm80_pipeline<<<
+    general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline<<<
         grid_dims, block_dims, 0, stream>>>(
         gemm_shape, cta_tiler, A, stride_A, smem_layout_A_swizzled,
         thread_layout_A, copy_A, B, stride_B, smem_layout_B_swizzled,
@@ -262,7 +261,7 @@ static cudaError_t gemm_nn(int m, int n, int k, Alpha alpha, TA const* A,
     // cute::SM80_CP_ASYNC_CACHEALWAYS<cute::half_t> is not supported.
     using CopyOperationB = cute::UniversalCopy<VectorTypeB>;
 
-    return gemm_base_tiled_copy_tiled_mma<
+    return gemm_base_gmem_tiled_copy_tiled_mma<
         TA, TB, TC, Alpha, Beta, decltype(stride_A), decltype(stride_B),
         decltype(stride_C), VectorTypeA, VectorTypeB, CopyOperationA,
         CopyOperationB>(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A,
@@ -291,7 +290,7 @@ static cudaError_t gemm_nt(int m, int n, int k, Alpha alpha, TA const* A,
     using CopyOperationA = cute::SM80_CP_ASYNC_CACHEALWAYS<VectorTypeA>;
     using CopyOperationB = cute::SM80_CP_ASYNC_CACHEALWAYS<VectorTypeB>;
 
-    return gemm_base_tiled_copy_tiled_mma<
+    return gemm_base_gmem_tiled_copy_tiled_mma<
         TA, TB, TC, Alpha, Beta, decltype(stride_A), decltype(stride_B),
         decltype(stride_C), VectorTypeA, VectorTypeB, CopyOperationA,
         CopyOperationB>(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A,
@@ -319,7 +318,7 @@ static cudaError_t gemm_tn(int m, int n, int k, Alpha alpha, TA const* A,
     using CopyOperationA = cute::UniversalCopy<VectorTypeA>;
     using CopyOperationB = cute::UniversalCopy<VectorTypeB>;
 
-    return gemm_base_tiled_copy_tiled_mma<
+    return gemm_base_gmem_tiled_copy_tiled_mma<
         TA, TB, TC, Alpha, Beta, decltype(stride_A), decltype(stride_B),
         decltype(stride_C), VectorTypeA, VectorTypeB, CopyOperationA,
         CopyOperationB>(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A,
@@ -347,7 +346,7 @@ static cudaError_t gemm_tt(int m, int n, int k, Alpha alpha, TA const* A,
     using CopyOperationA = cute::UniversalCopy<VectorTypeA>;
     using CopyOperationB = cute::SM80_CP_ASYNC_CACHEALWAYS<VectorTypeB>;
 
-    return gemm_base_tiled_copy_tiled_mma<
+    return gemm_base_gmem_tiled_copy_tiled_mma<
         TA, TB, TC, Alpha, Beta, decltype(stride_A), decltype(stride_B),
         decltype(stride_C), VectorTypeA, VectorTypeB, CopyOperationA,
         CopyOperationB>(m, n, k, alpha, A, ldA, B, ldB, beta, C, ldC, stride_A,
