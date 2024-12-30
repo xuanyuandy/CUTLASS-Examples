@@ -10,6 +10,26 @@ The performance was mainly optimized for the NT case where the matrix A is a M x
 
 ## Usages
 
+### Build Specialized CUDA Kernels
+
+High performance CUDA kernels are usually implemented in a way that is specialized for a certain problem sizes. Generic CUDA kernels might not be able to achieve the best performance. So instead of using one generic CUDA kernel to solve all the problems, accelerated computing libraries usually provide a set of specialized CUDA kernels that are optimized for different problem sizes or have some strict assumptions and requirements on the problem sizes.
+
+To build specialized CUDA kernels for performance measurements, please run the following commands.
+
+```bash
+$ export NUM_CMAKE_JOBS=4
+$ cmake -B build -DNO_BOUNDS_CHECK=ON
+$ cmake --build build --config Release --parallel ${NUM_CMAKE_JOBS}
+```
+
+To build generic CUDA kernels which are suitable for a wide range of problem sizes, please run the following commands.
+
+```bash
+$ export NUM_CMAKE_JOBS=4
+$ cmake -B build -DNO_BOUNDS_CHECK=OFF
+$ cmake --build build --config Release --parallel ${NUM_CMAKE_JOBS}
+```
+
 ### Run Unit Tests
 
 ```bash
@@ -23,6 +43,8 @@ The following tests passed:
 ```
 
 ### Run Performance Measurement
+
+The performance were measured using specialized CUDA kernels.
 
 ```bash
 $ ctest --test-dir build/ --tests-regex "ProfileAllGeneralMatrixMultiplication.*" --verbose

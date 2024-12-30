@@ -859,6 +859,12 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm80_pipeline(
         cute::size<2>(thread_layout_C_global_block_tensor_C) ==
         cute::size<2>(thread_layout_C_register_tensor_C)); // MMA_N
 
+#ifdef NO_BOUNDS_CHECK
+
+#else
+    // Doing bounds checking will compromise performance significantly.
+    // In this case, performance drops from ~90 TFLOPS to ~70 TFLOPS.
+
     // Create identity tensors.
     auto identity_tensor_A{cute::make_identity_tensor(cute::make_shape(
         cute::size<0>(smem_tensor_A), cute::size<1>(smem_tensor_A)))};
@@ -912,6 +918,7 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm80_pipeline(
                     blockIdx.y * cute::size<1>(global_block_tensor_C) <
                 cute::size<1>(shape_MNK);
     }
+#endif
 
     // Perform SM80 pipelining.
 
@@ -929,6 +936,18 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm80_pipeline(
     for (int pipeline_idx{0}; pipeline_idx < NUM_SMEM_PIPELINES - 1;
          ++pipeline_idx)
     {
+#ifdef NO_BOUNDS_CHECK
+        cute::copy(copy_A,
+                   thread_layout_A_global_block_tensor_A(
+                       cute::_, cute::_, cute::_, tile_idx_next),
+                   thread_layout_A_smem_tensor_A(cute::_, cute::_, cute::_,
+                                                 pipeline_idx));
+        cute::copy(copy_B,
+                   thread_layout_B_global_block_tensor_B(
+                       cute::_, cute::_, cute::_, tile_idx_next),
+                   thread_layout_B_smem_tensor_B(cute::_, cute::_, cute::_,
+                                                 pipeline_idx));
+#else
         // Copy from global memory to register for the next tile iteration.
         cute::clear(thread_layout_A_smem_tensor_A(cute::_, cute::_, cute::_,
                                                   pipeline_idx));
@@ -971,6 +990,7 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm80_pipeline(
                                   cute::_, cute::_, copy_k_idx, pipeline_idx));
             }
         }
+#endif
         cute::cp_async_fence();
         --num_tiles_remain;
         // num_tiles_remain can be a negative value if the number of tiles to
@@ -1066,6 +1086,18 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm80_pipeline(
             // from global memory to shared memory for the next pipeline.
             if (mma_idx_k == 0)
             {
+#ifdef NO_BOUNDS_CHECK
+                cute::copy(copy_A,
+                           thread_layout_A_global_block_tensor_A(
+                               cute::_, cute::_, cute::_, tile_idx_next),
+                           thread_layout_A_smem_tensor_A(
+                               cute::_, cute::_, cute::_, smem_pipeline_write));
+                cute::copy(copy_B,
+                           thread_layout_B_global_block_tensor_B(
+                               cute::_, cute::_, cute::_, tile_idx_next),
+                           thread_layout_B_smem_tensor_B(
+                               cute::_, cute::_, cute::_, smem_pipeline_write));
+#else
                 // Copy from global memory to register for the next tile
                 // iteration.
                 cute::clear(thread_layout_A_smem_tensor_A(
@@ -1116,7 +1148,7 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm80_pipeline(
                                                           smem_pipeline_write));
                     }
                 }
-
+#endif
                 cute::cp_async_fence();
                 --num_tiles_remain;
                 // num_tiles_remain can be a negative value if the number of
@@ -1143,9 +1175,14 @@ general_matrix_multiplication_tiled_copy_tiled_mma_sm80_pipeline(
     // Scale and accumulate the result from the register tensor to the global
     // block tensor.
     // There does not seem to be a tiled axpby existing yet.
+#ifdef NO_BOUNDS_CHECK
+    cute::axpby(alpha, thread_layout_C_register_tensor_C, beta,
+                thread_layout_C_global_block_tensor_C);
+#else
     cute::axpby(alpha, thread_layout_C_register_tensor_C, beta,
                 thread_layout_C_global_block_tensor_C,
                 thread_layout_C_predicate_tensor_C);
+#endif
 }
 
 #endif // CUT_GENERAL_MATRIX_MULTIPLICATION_CUH
