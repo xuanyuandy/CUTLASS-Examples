@@ -22,6 +22,7 @@ add_library(
     cute_general_matrix_multiplication_tensor_core_gmem_tiled_copy_tiled_mma.cu
     cute_general_matrix_multiplication_tensor_core_gmem_tiled_copy_smem_tiled_copy_tiled_mma.cu
     cute_general_matrix_multiplication_tensor_core_gmem_tiled_copy_tiled_mma_sm80_pipeline.cu
+    cute_general_matrix_multiplication_tensor_core_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pipeline.cu
 )
 target_include_directories(${CUTE_GENERAL_MATRIX_MULTIPLICATION} PRIVATE ${CUTLASS_INCLUDE_DIR} ${CUTLASS_UTILS_INCLUDE_DIR})
 set_target_properties(${CUTE_GENERAL_MATRIX_MULTIPLICATION} PROPERTIES CUDA_ARCHITECTURES native)
