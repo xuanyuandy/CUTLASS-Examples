@@ -53,20 +53,9 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
     // auto const swizzle_B{
     //     cute::Swizzle<NUM_MASK_BITS_B, NUM_BASE_BITS_B, NUM_SHIFT_BITS_B>{}};
 
-    auto swizzle_A{cute::Swizzle<3, 3, 3>{}};
-    auto swizzle_B{cute::Swizzle<3, 3, 3>{}};
+    auto const swizzle_A{cute::Swizzle<3, 3, 3>{}};
+    auto const swizzle_B{cute::Swizzle<3, 3, 3>{}};
 
-    // constexpr int NUM_BASE_BITS_A1{constexpr_log2(16)};
-    // constexpr int NUM_MASK_BITS_A1{constexpr_log2(32 * 4 / sizeof(TA)) -
-    //                               NUM_BASE_BITS_A1};
-    // constexpr int NUM_SHIFT_BITS_A1{constexpr_log2(bM) - NUM_BASE_BITS_A1};
-
-    // auto smem_atom_swizzle{cute::Swizzle<NUM_MASK_BITS_A1, NUM_BASE_BITS_A1,
-    // NUM_SHIFT_BITS_A1>{}};
-
-    // auto const smem_atom_shape_A{cute::make_shape(cute::Int<8>{},
-    // cute::Int<32>{})}; auto const
-    // smem_atom_shape_B{cute::make_shape(cute::Int<8>{}, cute::Int<32>{})};
     auto const smem_atom_shape_A{
         cute::make_shape(cute::Int<32>{}, cute::Int<8>{})};
     auto const smem_atom_shape_B{
