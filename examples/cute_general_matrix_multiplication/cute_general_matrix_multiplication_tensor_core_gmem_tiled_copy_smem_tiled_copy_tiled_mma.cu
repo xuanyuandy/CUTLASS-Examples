@@ -21,9 +21,6 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
     int ldB, Beta beta, TC* C, int ldC, AStride stride_A, BStride stride_B,
     CStride stride_C, cudaStream_t stream)
 {
-    constexpr auto NUM_VECTOR_ELEMENTS_A{sizeof(VectorTypeA) / sizeof(TA)};
-    constexpr auto NUM_VECTOR_ELEMENTS_B{sizeof(VectorTypeB) / sizeof(TB)};
-
     // Define GEMM shape.
     auto const M{m};
     auto const N{n};
@@ -37,29 +34,29 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
     auto const cta_tiler{cute::make_shape(bM, bN, bK)}; // (BLK_M, BLK_N, BLK_K)
 
     // Define smem layouts.
+
     // Swizzle parameters.
-    // constexpr int NUM_BASE_BITS_A{constexpr_log2(NUM_VECTOR_ELEMENTS_A)};
-    // constexpr int NUM_MASK_BITS_A{constexpr_log2(32 * 4 / sizeof(TA)) -
-    //                               NUM_BASE_BITS_A};
-    // constexpr int NUM_SHIFT_BITS_A{constexpr_log2(32) - NUM_BASE_BITS_A};
+    constexpr int NUM_BASE_BITS_A{
+        constexpr_log2(sizeof(cute::uint128_t) / sizeof(TA))};
+    constexpr int NUM_MASK_BITS_A{constexpr_log2(32 * 4 / sizeof(TA)) -
+                                  NUM_BASE_BITS_A};
+    constexpr int NUM_SHIFT_BITS_A{constexpr_log2(bM) - NUM_BASE_BITS_A};
 
-    // constexpr int NUM_BASE_BITS_B{constexpr_log2(NUM_VECTOR_ELEMENTS_B)};
-    // constexpr int NUM_MASK_BITS_B{constexpr_log2(32 * 4 / sizeof(TB)) -
-    //                               NUM_BASE_BITS_B};
-    // constexpr int NUM_SHIFT_BITS_B{constexpr_log2(32) - NUM_BASE_BITS_B};
+    constexpr int NUM_BASE_BITS_B{
+        constexpr_log2(sizeof(cute::uint128_t) / sizeof(TB))};
+    constexpr int NUM_MASK_BITS_B{constexpr_log2(32 * 4 / sizeof(TB)) -
+                                  NUM_BASE_BITS_B};
+    constexpr int NUM_SHIFT_BITS_B{constexpr_log2(bN) - NUM_BASE_BITS_B};
 
-    // auto const swizzle_A{
-    //     cute::Swizzle<NUM_MASK_BITS_A, NUM_BASE_BITS_A, NUM_SHIFT_BITS_A>{}};
-    // auto const swizzle_B{
-    //     cute::Swizzle<NUM_MASK_BITS_B, NUM_BASE_BITS_B, NUM_SHIFT_BITS_B>{}};
-
-    auto const swizzle_A{cute::Swizzle<3, 3, 3>{}};
-    auto const swizzle_B{cute::Swizzle<3, 3, 3>{}};
+    auto const swizzle_A{
+        cute::Swizzle<NUM_MASK_BITS_A, NUM_BASE_BITS_A, NUM_SHIFT_BITS_A>{}};
+    auto const swizzle_B{
+        cute::Swizzle<NUM_MASK_BITS_B, NUM_BASE_BITS_B, NUM_SHIFT_BITS_B>{}};
 
     auto const smem_atom_shape_A{
-        cute::make_shape(cute::Int<32>{}, cute::Int<8>{})};
+        cute::make_shape(cute::Int<32>{}, cute::Int<1>{})};
     auto const smem_atom_shape_B{
-        cute::make_shape(cute::Int<32>{}, cute::Int<8>{})};
+        cute::make_shape(cute::Int<32>{}, cute::Int<1>{})};
     auto const smem_atom_layout_A{cute::make_layout(smem_atom_shape_A)};
     auto const smem_atom_layout_B{cute::make_layout(smem_atom_shape_B)};
     auto const smem_shape_A{cute::make_shape(bM, bK)}; // (BLK_M, BLK_K)
@@ -140,6 +137,7 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
                              cute::size<1>(thread_layout_B) ==
                          cute::Int<0>{}); // BLK_K % THR_K == 0
 
+    constexpr auto NUM_VECTOR_ELEMENTS_A{sizeof(VectorTypeA) / sizeof(TA)};
     auto const vector_shape_A{
         cute::make_shape(cute::Int<NUM_VECTOR_ELEMENTS_A>{},
                          cute::Int<1>{})}; // (NUM_VECTOR_ELEMENTS_A, 1)
@@ -157,6 +155,7 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
             (cute::size<0>(thread_layout_A) * cute::size<0>(vector_layout_A)) ==
         cute::Int<0>{}); // BLK_M % (THR_M * NUM_VECTOR_ELEMENTS_A) == 0
 
+    constexpr auto NUM_VECTOR_ELEMENTS_B{sizeof(VectorTypeB) / sizeof(TB)};
     auto const vector_shape_B{
         cute::make_shape(cute::Int<NUM_VECTOR_ELEMENTS_B>{},
                          cute::Int<1>{})}; // (NUM_VECTOR_ELEMENTS_B, 1)

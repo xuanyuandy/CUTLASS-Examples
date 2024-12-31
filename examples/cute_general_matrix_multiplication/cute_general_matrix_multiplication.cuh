@@ -109,7 +109,7 @@ __global__ void general_matrix_multiplication_gmem_tiled_copy_tiled_mma(
     // Shared memory buffers.
     __shared__ TA smem_A[cute::cosize_v<ASmemLayout>];
     __shared__ TB smem_B[cute::cosize_v<BSmemLayout>];
-    // sA and sB are always column-major.
+    // smem_layout_A and smem_layout_B are always column-major.
     // TODO: Add CUTE_STATIC_ASSERT to ensure the above conditions.
     auto smem_tensor_A{cute::make_tensor(cute::make_smem_ptr(smem_A),
                                          smem_layout_A)}; // (BLK_M, BLK_K)
@@ -393,7 +393,7 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
     // Shared memory buffers.
     __shared__ TA smem_A[cute::cosize_v<ASmemLayout>];
     __shared__ TB smem_B[cute::cosize_v<BSmemLayout>];
-    // sA and sB are always column-major.
+    // smem_layout_A and smem_layout_B are always column-major.
     // TODO: Add CUTE_STATIC_ASSERT to ensure the above conditions.
     auto smem_tensor_A{cute::make_tensor(cute::make_smem_ptr(smem_A),
                                          smem_layout_A)}; // (BLK_M, BLK_K)
@@ -415,18 +415,10 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
     // Partition via MMA.
     auto thread_mma{mma.get_slice(threadIdx.x)};
     // Tensor used for MMA.
-    // auto thread_layout_C_register_tensor_A{
-    //     thread_mma.partition_fragment_A(smem_tensor_A)}; // (MMA, MMA_M,
-    //     MMA_K)
-    // auto thread_layout_C_register_tensor_B{
-    //     thread_mma.partition_fragment_B(smem_tensor_B)}; // (MMA, MMA_N,
-    //     MMA_K)
     auto thread_layout_C_register_tensor_A{
-        thread_mma.partition_fragment_A(global_block_tensor_A(
-            cute::_, cute::_, cute::Int<0>{}))}; // (MMA, MMA_M, MMA_K)
+        thread_mma.partition_fragment_A(smem_tensor_A)}; // (MMA, MMA_M, MMA_K)
     auto thread_layout_C_register_tensor_B{
-        thread_mma.partition_fragment_B(global_block_tensor_B(
-            cute::_, cute::_, cute::Int<0>{}))}; // (MMA, MMA_N, MMA_K)
+        thread_mma.partition_fragment_B(smem_tensor_B)}; // (MMA, MMA_N, MMA_K)
 
     // Partition via smem tiled copy.
     auto thread_smem_copy_A{smem_copy_A.get_slice(threadIdx.x)};
@@ -453,22 +445,6 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
     CUTE_STATIC_ASSERT_V(
         cute::size<2>(thread_layout_C_smem_tensor_B) ==
         cute::size<2>(thread_layout_C_register_tensor_B_copy_view)); // CPY_K
-
-    // if (cute::thread0())
-    // {
-    //     printf("smem_copy_A\n");
-    //     cute::print(smem_copy_A);
-    //     printf("\n");
-    //     printf("thread_smem_copy_A\n");
-    //     cute::print(thread_smem_copy_A);
-    //     printf("\n");
-    //     printf("thread_layout_C_smem_tensor_A\n");
-    //     cute::print(thread_layout_C_smem_tensor_A);
-    //     printf("\n");
-    //     printf("thread_layout_C_register_tensor_A_copy_view\n");
-    //     cute::print(thread_layout_C_register_tensor_A_copy_view);
-    //     printf("\n");
-    // }
 
     // Allocate the accumulators.
     // The layout is automatically compacted to the smallest possible layout to
@@ -745,7 +721,7 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
     // Shared memory buffers.
     __shared__ TA smem_A[cute::cosize_v<ASmemLayout>];
     __shared__ TB smem_B[cute::cosize_v<BSmemLayout>];
-    // sA and sB are always column-major.
+    // smem_layout_A and smem_layout_B are always column-major.
     // TODO: Add CUTE_STATIC_ASSERT to ensure the above conditions.
     auto smem_tensor_A{cute::make_tensor(cute::make_smem_ptr(smem_A),
                                          smem_layout_A)}; // (BLK_M, BLK_K)
@@ -1150,7 +1126,7 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
     // Shared memory buffers.
     __shared__ TA smem_A[cute::cosize_v<ASmemLayout>];
     __shared__ TB smem_B[cute::cosize_v<BSmemLayout>];
-    // sA and sB are always column-major.
+    // smem_layout_A and smem_layout_B are always column-major.
     // TODO: Add CUTE_STATIC_ASSERT to ensure the above conditions.
     auto smem_tensor_A{cute::make_tensor(
         cute::make_smem_ptr(smem_A), smem_layout_A)}; // (BLK_M, BLK_K, PIPE)
