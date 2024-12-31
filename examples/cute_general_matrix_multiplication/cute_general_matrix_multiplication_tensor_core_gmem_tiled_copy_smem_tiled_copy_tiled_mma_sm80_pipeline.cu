@@ -36,21 +36,44 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
     auto const bP{cute::Int<3>{}};                      // Pipeline
 
     // Define smem layouts.
-    // smem_layout_A is (BLK_M, BLK_K) column-major.
-    // smem_layout_B is (BLK_N, BLK_K) column-major.
+
+    // Swizzle parameters.
+    constexpr int NUM_BASE_BITS_A{
+        constexpr_log2(sizeof(cute::uint128_t) / sizeof(TA))};
+    constexpr int NUM_MASK_BITS_A{constexpr_log2(32 * 4 / sizeof(TA)) -
+                                  NUM_BASE_BITS_A};
+    constexpr int NUM_SHIFT_BITS_A{constexpr_log2(bM) - NUM_BASE_BITS_A};
+
+    constexpr int NUM_BASE_BITS_B{
+        constexpr_log2(sizeof(cute::uint128_t) / sizeof(TB))};
+    constexpr int NUM_MASK_BITS_B{constexpr_log2(32 * 4 / sizeof(TB)) -
+                                  NUM_BASE_BITS_B};
+    constexpr int NUM_SHIFT_BITS_B{constexpr_log2(bN) - NUM_BASE_BITS_B};
+
+    auto const swizzle_A{
+        cute::Swizzle<NUM_MASK_BITS_A, NUM_BASE_BITS_A, NUM_SHIFT_BITS_A>{}};
+    auto const swizzle_B{
+        cute::Swizzle<NUM_MASK_BITS_B, NUM_BASE_BITS_B, NUM_SHIFT_BITS_B>{}};
+
+    auto const smem_atom_shape_A{
+        cute::make_shape(cute::Int<32>{}, cute::Int<1>{})};
+    auto const smem_atom_shape_B{
+        cute::make_shape(cute::Int<32>{}, cute::Int<1>{})};
+    auto const smem_atom_layout_A{cute::make_layout(smem_atom_shape_A)};
+    auto const smem_atom_layout_B{cute::make_layout(smem_atom_shape_B)};
+    auto const smem_shape_A{cute::make_shape(bM, bK, bP)}; // (BLK_M, BLK_K)
+    auto const smem_shape_B{cute::make_shape(bN, bK, bP)}; // (BLK_N, BLK_K)
+    auto const smem_atom_layout_A_swizzled{
+        cute::composition(swizzle_A, smem_atom_layout_A)};
+    auto const smem_atom_layout_B_swizzled{
+        cute::composition(swizzle_B, smem_atom_layout_B)};
+
+    auto const smem_layout_A{
+        cute::tile_to_shape(smem_atom_layout_A_swizzled, smem_shape_A)};
+    auto const smem_layout_B{
+        cute::tile_to_shape(smem_atom_layout_B_swizzled, smem_shape_B)};
+
     // smem_layout_C is (BLK_M, BLK_N) column-major.
-    auto const smem_shape_A{
-        cute::make_shape(bM, bK, bP)}; // (BLK_M, BLK_K, BLK_P)
-    auto const smem_stride_A{
-        cute::make_stride(cute::Int<1>{}, bM, bM * bK)}; // column-major
-    auto const smem_layout_A{cute::make_layout(
-        smem_shape_A, smem_stride_A)}; // (BLK_M, BLK_K, BLK_P)
-    auto const smem_shape_B{
-        cute::make_shape(bN, bK, bP)}; // (BLK_N, BLK_K, BLK_P)
-    auto const smem_stride_B{
-        cute::make_stride(cute::Int<1>{}, bN, bN * bK)}; // column-major
-    auto const smem_layout_B{cute::make_layout(
-        smem_shape_B, smem_stride_B)};                 // (BLK_N, BLK_K, BLK_P)
     auto const smem_shape_C{cute::make_shape(bM, bN)}; // (BLK_M, BLK_N)
     auto const smem_stride_C{cute::make_stride(
         cute::Int<1>{}, cute::size<0>(smem_shape_C))}; // column-major
@@ -149,17 +172,6 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
             (cute::size<0>(thread_layout_B) * cute::size<0>(vector_layout_B)) ==
         cute::Int<0>{}); // BLK_N % (THR_N * NUM_VECTOR_ELEMENTS_B) == 0
 
-    // Somehow using SM70 Tensor Core MMA is much slower than using
-    // UniversalFMA. Configure SM70 Tensor Core MMA. auto
-    // mma_atom{cute::MMA_Atom<cute::SM70_8x8x4_F16F16F16F16_NT>{}}; auto
-    // mma_layout{cute::make_layout(
-    //     cute::make_shape(cute::Int<8>{}, cute::Int<4>{}),
-    //     cute::make_stride(cute::Int<4>{}, cute::Int<1>{}))};
-    // auto mma{cute::make_tiled_mma(mma_atom, mma_layout)};
-
-    // auto mma{cute::make_tiled_mma(cute::UniversalFMA<TA, TB, TC>{},
-    //                               thread_layout_C)};
-
     // Configure SM80 Tensor Core MMA.
     using MmaTraits = cute::MMA_Traits<cute::SM80_16x8x16_F16F16F16F16_TN>;
     using MmaAtomShape = MmaTraits::Shape_MNK;
@@ -191,37 +203,10 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
     CUTE_STATIC_ASSERT(std::is_same_v<TB, cute::half_t>);
     CUTE_STATIC_ASSERT(std::is_same_v<TC, cute::half_t>);
 
-    // Swizzle parameters.
-    constexpr int NUM_BASE_BITS_A{constexpr_log2(NUM_VECTOR_ELEMENTS_A)};
-    // This does not seem to work for TA = cute::half_t and pipeline is used
-    // (shared memory layout becomes 3D). constexpr int
-    // NUM_MASK_BITS_A{constexpr_log2(32 * 4 / sizeof(TA)) - NUM_BASE_BITS_A};
-    // Need to investigate why this does not work.
-    constexpr int NUM_MASK_BITS_A{constexpr_log2(32 * 2 / sizeof(TA)) -
-                                  NUM_BASE_BITS_A};
-    constexpr int NUM_SHIFT_BITS_A{constexpr_log2(bM) - NUM_BASE_BITS_A};
-
-    constexpr int NUM_BASE_BITS_B{constexpr_log2(NUM_VECTOR_ELEMENTS_B)};
-    // This does not seem to work for TB = cute::half_t and pipeline is used
-    // (shared memory layout becomes 3D). constexpr int
-    // NUM_MASK_BITS_B{constexpr_log2(32 * 4 / sizeof(TB)) - NUM_BASE_BITS_B};
-    constexpr int NUM_MASK_BITS_B{constexpr_log2(32 * 2 / sizeof(TB)) -
-                                  NUM_BASE_BITS_B};
-    constexpr int NUM_SHIFT_BITS_B{constexpr_log2(bN) - NUM_BASE_BITS_B};
-
-    auto const swizzle_A{
-        cute::Swizzle<NUM_MASK_BITS_A, NUM_BASE_BITS_A, NUM_SHIFT_BITS_A>{}};
-    auto const swizzle_B{
-        cute::Swizzle<NUM_MASK_BITS_B, NUM_BASE_BITS_B, NUM_SHIFT_BITS_B>{}};
-
-    // In fact, for some layouts, swizzles are not needed if no transpose is
-    // performed.
-    // But it should not reduce the performance even if the transpose is not
-    // performed.
-    auto const smem_layout_A_swizzled{
-        cute::composition(swizzle_A, smem_layout_A)};
-    auto const smem_layout_B_swizzled{
-        cute::composition(swizzle_B, smem_layout_B)};
+    auto smem_tiled_copy_A{cute::make_tiled_copy_A(
+        cute::Copy_Atom<cute::SM75_U16x8_LDSM_T, TA>{}, mma)};
+    auto smem_tiled_copy_B{cute::make_tiled_copy_B(
+        cute::Copy_Atom<cute::SM75_U16x8_LDSM_T, TB>{}, mma)};
 
     // Launch the kernel.
     dim3 const block_dims{
@@ -229,12 +214,12 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
     dim3 const grid_dims{
         static_cast<unsigned int>(cute::size(cute::ceil_div(M, bM))),
         static_cast<unsigned int>(cute::size(cute::ceil_div(N, bN)))};
-    general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline<<<
+    general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pipeline<<<
         grid_dims, block_dims, 0, stream>>>(
-        gemm_shape, cta_tiler, A, stride_A, smem_layout_A_swizzled,
-        thread_layout_A, gmem_copy_A, B, stride_B, smem_layout_B_swizzled,
-        thread_layout_B, gmem_copy_B, C, stride_C, smem_layout_C,
-        thread_layout_C, mma, alpha, beta);
+        gemm_shape, cta_tiler, A, stride_A, smem_layout_A, thread_layout_A,
+        gmem_copy_A, smem_tiled_copy_A, B, stride_B, smem_layout_B,
+        thread_layout_B, gmem_copy_B, smem_tiled_copy_B, C, stride_C,
+        smem_layout_C, thread_layout_C, mma, alpha, beta);
 
     return cudaGetLastError();
 }

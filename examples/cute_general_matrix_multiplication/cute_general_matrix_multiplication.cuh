@@ -1495,18 +1495,19 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
 #endif
 }
 
-
 template <class ProblemShape, class CtaTiler, class TA, class AStride,
           class ASmemLayout, class AThreadLayout, class GmemTiledCopyA,
-          class TB, class BStride, class BSmemLayout, class BThreadLayout,
-          class GmemTiledCopyB, class TC, class CStride, class CSmemLayout,
-          class CThreadLayout, class TiledMMA, class Alpha, class Beta>
+          class SmemTiledCopyA, class TB, class BStride, class BSmemLayout,
+          class BThreadLayout, class GmemTiledCopyB, class SmemTiledCopyB,
+          class TC, class CStride, class CSmemLayout, class CThreadLayout,
+          class TiledMMA, class Alpha, class Beta>
 __global__ void
 general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pipeline(
     ProblemShape shape_MNK, CtaTiler cta_tiler, TA const* A, AStride stride_A,
     ASmemLayout smem_layout_A, AThreadLayout, GmemTiledCopyA gmem_copy_A,
-    TB const* B, BStride stride_B, BSmemLayout smem_layout_B, BThreadLayout,
-    GmemTiledCopyB gmem_copy_B, TC* C, CStride stride_C, CSmemLayout,
+    SmemTiledCopyA smem_copy_A, TB const* B, BStride stride_B,
+    BSmemLayout smem_layout_B, BThreadLayout, GmemTiledCopyB gmem_copy_B,
+    SmemTiledCopyB smem_copy_B, TC* C, CStride stride_C, CSmemLayout,
     CThreadLayout, TiledMMA mma, Alpha alpha, Beta beta)
 {
     CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{}); // (M, N, K)
@@ -1638,31 +1639,48 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
 
     // Partition via MMA.
     auto thread_mma{mma.get_slice(threadIdx.x)};
-    auto thread_layout_C_smem_tensor_A{
-        thread_mma.partition_A(smem_tensor_A)}; // (MMA, MMA_M, MMA_K, PIPE)
-    auto thread_layout_C_smem_tensor_B{
-        thread_mma.partition_B(smem_tensor_B)}; // (MMA, MMA_N, MMA_K, PIPE)
-    auto thread_layout_C_global_block_tensor_C{
-        thread_mma.partition_C(global_block_tensor_C)}; // (MMA, MMA_M, MMA_N)
+    // Tensor used for MMA.
+    auto thread_layout_C_register_tensor_A{
+        thread_mma.partition_fragment_A(smem_tensor_A(
+            cute::_, cute::_, cute::Int<0>{}))}; // (MMA, MMA_M, MMA_K)
+    auto thread_layout_C_register_tensor_B{
+        thread_mma.partition_fragment_B(smem_tensor_B(
+            cute::_, cute::_, cute::Int<0>{}))}; // (MMA, MMA_N, MMA_K)
+
+    // Partition via smem tiled copy.
+    auto thread_smem_copy_A{smem_copy_A.get_slice(threadIdx.x)};
+    auto thread_layout_C_smem_tensor_A{thread_smem_copy_A.partition_S(
+        smem_tensor_A)}; // (CPY, CPY_M, CPY_K, PIPE)
+    auto thread_layout_C_register_tensor_A_copy_view{
+        thread_smem_copy_A.retile_D(
+            thread_layout_C_register_tensor_A)}; // (CPY, CPY_M, CPY_K)
+    CUTE_STATIC_ASSERT_V(
+        cute::size<1>(thread_layout_C_smem_tensor_A) ==
+        cute::size<1>(thread_layout_C_register_tensor_A_copy_view)); // CPY_M
+    CUTE_STATIC_ASSERT_V(
+        cute::size<2>(thread_layout_C_smem_tensor_A) ==
+        cute::size<2>(thread_layout_C_register_tensor_A_copy_view)); // CPY_K
+    auto thread_smem_copy_B{smem_copy_B.get_slice(threadIdx.x)};
+    auto thread_layout_C_smem_tensor_B{thread_smem_copy_B.partition_S(
+        smem_tensor_B)}; // (CPY, CPY_N, CPY_K, PIPE)
+    auto thread_layout_C_register_tensor_B_copy_view{
+        thread_smem_copy_B.retile_D(
+            thread_layout_C_register_tensor_B)}; // (CPY, CPY_N, CPY_K)
+    CUTE_STATIC_ASSERT_V(
+        cute::size<1>(thread_layout_C_smem_tensor_B) ==
+        cute::size<1>(thread_layout_C_register_tensor_B_copy_view)); // CPY_N
+    CUTE_STATIC_ASSERT_V(
+        cute::size<2>(thread_layout_C_smem_tensor_B) ==
+        cute::size<2>(thread_layout_C_register_tensor_B_copy_view)); // CPY_K
 
     // Allocate the accumulators.
     // The layout is automatically compacted to the smallest possible layout to
     // avoid unnecessary memory/register usage.
-    auto thread_layout_C_register_tensor_A{
-        cute::make_fragment_like(thread_layout_C_smem_tensor_A(
-            cute::_, cute::_, cute::_, 0))}; // (MMA, MMA_M, MMA_K)
-    auto thread_layout_C_register_tensor_B{
-        cute::make_fragment_like(thread_layout_C_smem_tensor_B(
-            cute::_, cute::_, cute::_, 0))}; // (MMA, MMA_N, MMA_K)
+    auto thread_layout_C_global_block_tensor_C{
+        thread_mma.partition_C(global_block_tensor_C)}; // (MMA, MMA_M, MMA_N)
     auto thread_layout_C_register_tensor_C{cute::make_fragment_like(
         thread_layout_C_global_block_tensor_C)}; // (MMA, MMA_M, MMA_N)
 
-    CUTE_STATIC_ASSERT_V(
-        cute::size<1>(thread_layout_C_smem_tensor_A) ==
-        cute::size<1>(thread_layout_C_register_tensor_C)); // MMA_M
-    CUTE_STATIC_ASSERT_V(
-        cute::size<1>(thread_layout_C_smem_tensor_B) ==
-        cute::size<2>(thread_layout_C_register_tensor_C)); // MMA_N
     CUTE_STATIC_ASSERT_V(
         cute::size<1>(thread_layout_C_global_block_tensor_C) ==
         cute::size<1>(thread_layout_C_register_tensor_C)); // MMA_M
@@ -1850,14 +1868,16 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
         __syncthreads();
 
         // Prefetch the first register pipeline.
-        cute::copy(thread_layout_C_smem_tensor_A_current_smem_pipeline(
+        cute::copy(smem_copy_A,
+                   thread_layout_C_smem_tensor_A_current_smem_pipeline(
                        cute::_, cute::_, cute::Int<0>{}),
-                   thread_layout_C_register_tensor_A(cute::_, cute::_,
-                                                     cute::Int<0>{}));
-        cute::copy(thread_layout_C_smem_tensor_B_current_smem_pipeline(
+                   thread_layout_C_register_tensor_A_copy_view(cute::_, cute::_,
+                                                               cute::Int<0>{}));
+        cute::copy(smem_copy_B,
+                   thread_layout_C_smem_tensor_B_current_smem_pipeline(
                        cute::_, cute::_, cute::Int<0>{}),
-                   thread_layout_C_register_tensor_B(cute::_, cute::_,
-                                                     cute::Int<0>{}));
+                   thread_layout_C_register_tensor_B_copy_view(cute::_, cute::_,
+                                                               cute::Int<0>{}));
     }
 
     // If all the tiles have been processed in the pipeline,
@@ -1885,14 +1905,16 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
             // Load data to the register for the next mma iteration.
             auto const mma_idx_k_next{(mma_idx_k + cute::Int<1>{}) %
                                       NUM_REGISTER_PIPELINES};
-            cute::copy(thread_layout_C_smem_tensor_A_current_smem_pipeline(
+            cute::copy(smem_copy_A,
+                       thread_layout_C_smem_tensor_A_current_smem_pipeline(
                            cute::_, cute::_, mma_idx_k_next),
-                       thread_layout_C_register_tensor_A(cute::_, cute::_,
-                                                         mma_idx_k_next));
-            cute::copy(thread_layout_C_smem_tensor_B_current_smem_pipeline(
+                       thread_layout_C_register_tensor_A_copy_view(
+                           cute::_, cute::_, mma_idx_k_next));
+            cute::copy(smem_copy_B,
+                       thread_layout_C_smem_tensor_B_current_smem_pipeline(
                            cute::_, cute::_, mma_idx_k_next),
-                       thread_layout_C_register_tensor_B(cute::_, cute::_,
-                                                         mma_idx_k_next));
+                       thread_layout_C_register_tensor_B_copy_view(
+                           cute::_, cute::_, mma_idx_k_next));
             // At the beginning of the tile processing, asynchronously load data
             // from global memory to shared memory for the next pipeline.
             if (mma_idx_k == 0)
