@@ -159,7 +159,7 @@ static __global__ void general_matrix_multiplication_naive(
     // Shared memory buffers.
     __shared__ TA smem_A[cute::cosize_v<ASmemLayout>];
     __shared__ TB smem_B[cute::cosize_v<BSmemLayout>];
-    // sA and sB are always column-major.
+    // smem_layout_A and smem_layout_B are always column-major.
     // TODO: Add CUTE_STATIC_ASSERT to ensure the above conditions.
     auto smem_tensor_A{cute::make_tensor(cute::make_smem_ptr(smem_A),
                                          smem_layout_A)}; // (BLK_M, BLK_K)

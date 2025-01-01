@@ -5,24 +5,37 @@
 #include "cute_general_matrix_multiplication.hpp"
 
 static auto const LAUNCH_GENERAL_MATRIX_MULTIPLICATION_FLOAT{
-    launch_sgemm_1<float, float, float, float, float>};
+    launch_gemm_naive_gmem_tiled_copy_tiled_mma_sm70_pipeline<
+        float, float, float, float, float>};
 static auto const LAUNCH_GENERAL_MATRIX_MULTIPLICATION_DOUBLE{
-    launch_sgemm_1<double, double, double, double, double>};
+    launch_gemm_naive_gmem_tiled_copy_tiled_mma_sm70_pipeline<
+        double, double, double, double, double>};
 static auto const LAUNCH_GENERAL_MATRIX_MULTIPLICATION_HALF_DATA_FLOAT_COMPUTE{
-    launch_sgemm_1<cutlass::half_t, cutlass::half_t, cutlass::half_t, float,
-                   float>};
+    launch_gemm_naive_gmem_tiled_copy_tiled_mma_sm70_pipeline<
+        cutlass::half_t, cutlass::half_t, cutlass::half_t, float, float>};
 static auto const LAUNCH_GENERAL_MATRIX_MULTIPLICATION_HALF_DATA_HALF_COMPUTE{
-    launch_sgemm_1<cutlass::half_t, cutlass::half_t, cutlass::half_t,
-                   cutlass::half_t, cutlass::half_t>};
+    launch_gemm_naive_gmem_tiled_copy_tiled_mma_sm70_pipeline<
+        cutlass::half_t, cutlass::half_t, cutlass::half_t, cutlass::half_t,
+        cutlass::half_t>};
 
-static auto const TRANS_A_VALUES{::testing::Values('N')};
-static auto const TRANS_B_VALUES{::testing::Values('T')};
-static auto const M_VALUES{::testing::Values(1024)};
-static auto const N_VALUES{::testing::Values(1024)};
-static auto const K_VALUES{::testing::Values(1024)};
-static auto const LDA_VALUES{::testing::Values(1024)};
-static auto const LDB_VALUES{::testing::Values(1024)};
-static auto const LDC_VALUES{::testing::Values(1024)};
+static auto const TRANS_A_VALUES{::testing::Values('T', 'N')};
+static auto const TRANS_B_VALUES{::testing::Values('T', 'N')};
+
+#ifdef NO_BOUNDS_CHECK
+static auto const M_VALUES{::testing::Values(128, 256, 512)};
+static auto const N_VALUES{::testing::Values(128, 256, 512)};
+static auto const K_VALUES{::testing::Values(128, 256, 512)};
+static auto const LDA_VALUES{::testing::Values(512)};
+static auto const LDB_VALUES{::testing::Values(512)};
+static auto const LDC_VALUES{::testing::Values(512)};
+#else
+static auto const M_VALUES{::testing::Values(256, 448, 512)};
+static auto const N_VALUES{::testing::Values(256, 448, 512)};
+static auto const K_VALUES{::testing::Values(256, 448, 512)};
+static auto const LDA_VALUES{::testing::Values(512)};
+static auto const LDB_VALUES{::testing::Values(512)};
+static auto const LDC_VALUES{::testing::Values(512)};
+#endif
 
 TEST_P(TestGeneralMatrixMultiplicationFloat,
        TestGeneralMatrixMultiplicationFloat)

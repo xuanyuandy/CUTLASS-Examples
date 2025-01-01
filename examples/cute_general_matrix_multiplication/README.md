@@ -4,9 +4,29 @@
 
 These examples demonstrate the implementation of general matrix transpose kernels using the CuTe. They follow the cuBLAS interface design and supports matrices that are transposed or not transposed. The naive kernels perform boundary checks and can be used for any matrix dimension size. The kernels that performs tiled copy assumes each matrix dimension size is a multiple of certain size, usually 32, depending on the data type.
 
-The pipelining optimization for general matrix multiplication remains to be implemented.
+The performance was mainly optimized for the NT case where the matrix A is a M x K column-major matrix, the matrix B is a K x N row-major matrix, and the matrix C is a M x N column-major matrix. I will try coming up with a general implementation that optimizes for all the NN, NT, TN, and TT cases in the future. An idea is to use shared memory layouts that are compatible with the global memory layouts so that global memory vectorized access can always be enabled.
 
 ## Usages
+
+### Build Specialized CUDA Kernels
+
+High performance CUDA kernels are usually implemented in a way that is specialized for a certain problem sizes. Generic CUDA kernels might not be able to achieve the best performance. So instead of using one generic CUDA kernel to solve all the problems, accelerated computing libraries usually provide a set of specialized CUDA kernels that are optimized for different problem sizes or have some strict assumptions and requirements on the problem sizes.
+
+To build specialized CUDA kernels for performance measurements, please run the following commands.
+
+```bash
+$ export NUM_CMAKE_JOBS=4
+$ cmake -B build -DNO_BOUNDS_CHECK=ON
+$ cmake --build build --config Release --parallel ${NUM_CMAKE_JOBS}
+```
+
+To build generic CUDA kernels which are suitable for a wide range of problem sizes, please run the following commands.
+
+```bash
+$ export NUM_CMAKE_JOBS=4
+$ cmake -B build -DNO_BOUNDS_CHECK=OFF
+$ cmake --build build --config Release --parallel ${NUM_CMAKE_JOBS}
+```
 
 ### Run Unit Tests
 
@@ -22,30 +42,23 @@ The following tests passed:
 
 ### Run Performance Measurement
 
+The performance were measured using specialized CUDA kernels.
+
 ```bash
 $ ctest --test-dir build/ --tests-regex "ProfileAllGeneralMatrixMultiplication.*" --verbose
 ```
 
 Only the general matrix multiplication kernels that consume half typed data and compute in half precision are documented here for a problem size of 4096 x 4096 x 4096 on NVIDIA GeForce RTX 3090.
 
-|                Kernel Name                | Trans A | Trans B | Latency (ms) |  TOPs   | Performance VS cuBLAS (%) |
-| :---------------------------------------: | :-----: | :-----: | :----------: | :-----: | :-----------------------: |
-|                  cuBLAS                   |    T    |    T    |   0.961536   | 142.937 |             -             |
-|                  cuBLAS                   |    T    |    N    |   1.00198    | 137.167 |             -             |
-|                  cuBLAS                   |    N    |    T    |   0.942925   | 145.758 |             -             |
-|                  cuBLAS                   |    N    |    N    |   1.06793    | 128.697 |             -             |
-|                   Naive                   |    T    |    T    |   13.3946    | 10.2607 |          7.17852          |
-|                   Naive                   |    T    |    N    |   12.9244    | 10.6341 |          7.75264          |
-|                   Naive                   |    N    |    T    |   13.9895    | 9.82445 |          6.74024          |
-|                   Naive                   |    N    |    N    |   9.64628    | 14.2479 |          11.0709          |
-|          Tiled Copy + Tiled MMA           |    T    |    T    |   7.89575    | 17.4067 |          12.2555          |
-|          Tiled Copy + Tiled MMA           |    T    |    N    |   9.76526    | 14.0743 |          10.375           |
-|          Tiled Copy + Tiled MMA           |    N    |    T    |   5.58715    | 24.5991 |          17.4957          |
-|          Tiled Copy + Tiled MMA           |    N    |    N    |   9.00575    | 15.2612 |          11.0451          |
-| Tiled Copy + Tiled MMA + SM80 Tensor Core |    T    |    T    |   5.25312    | 26.1633 |          20.4351          |
-| Tiled Copy + Tiled MMA + SM80 Tensor Core |    T    |    N    |   8.35786    | 16.4443 |          13.5997          |
-| Tiled Copy + Tiled MMA + SM80 Tensor Core |    N    |    T    |   2.66874    | 51.4996 |          40.6004          |
-| Tiled Copy + Tiled MMA + SM80 Tensor Core |    N    |    N    |   5.03395    | 27.3024 |          22.1927          |
+|                                   Kernel Name                                    | Trans A | Trans B | Latency (ms) |  TOPs   | Performance VS cuBLAS (%) |
+| :------------------------------------------------------------------------------: | :-----: | :-----: | :----------: | :-----: | :-----------------------: |
+|                                      cuBLAS                                      |    N    |    T    |   1.12927    | 121.706 |             -             |
+|                                      Naive                                       |    N    |    T    |   15.1479    | 9.07312 |          6.96212          |
+|                           Gmem Tiled Copy + Tiled MMA                            |    N    |    T    |   8.02777    | 17.1204 |          14.067           |
+|                  Gmem Tiled Copy + Tiled MMA + SM80 Tensor Core                  |    N    |    T    |   2.29437    | 59.9026 |          56.0556          |
+|          Gmem Tiled Copy + Tiled MMA + SM80 Tensor Core + SM80 Pipeline          |    N    |    T    |   1.63768    | 83.9228 |          77.8466          |
+|         Gmem Tiled Copy + Smem Tiled Copy + Tiled MMA + SM80 Tensor Core         |    N    |    T    |   1.93464    | 71.041  |          65.1556          |
+| Gmem Tiled Copy + Smem Tiled Copy + Tiled MMA + SM80 Tensor Core + SM80 Pipeline |    N    |    T    |   1.16808    | 117.663 |          108.67           |
 
 ### Run Nsight Compute Profiling
 
@@ -65,3 +78,6 @@ done
 ```
 
 ## References
+
+- [Cooperative GEMM - CuTe](https://github.com/NVIDIA/cutlass/blob/bf9da7b76c766d7ee7d536afc77880a4ef1f1156/include/cute/algorithm/cooperative_gemm.hpp)
+- [SM80 MMA Multi-Stage - CUTLASS](https://github.com/NVIDIA/cutlass/blob/bf9da7b76c766d7ee7d536afc77880a4ef1f1156/include/cutlass/gemm/collective/sm80_mma_multistage.hpp)
