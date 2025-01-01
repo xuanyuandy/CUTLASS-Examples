@@ -14,17 +14,18 @@ template <class ProblemShape, class CtaTiler, class TA, class AStride,
           class CThreadLayout, class TiledMMA, class Alpha, class Beta>
 __global__ void general_matrix_multiplication_gmem_tiled_copy_tiled_mma(
     ProblemShape shape_MNK, CtaTiler cta_tiler, TA const* A, AStride stride_A,
-    ASmemLayout smem_layout_A, AThreadLayout, GmemTiledCopyA gmem_copy_A,
+    ASmemLayout smem_layout_A, AThreadLayout, GmemTiledCopyA gmem_tiled_copy_A,
     TB const* B, BStride stride_B, BSmemLayout smem_layout_B, BThreadLayout,
-    GmemTiledCopyB gmem_copy_B, TC* C, CStride stride_C, CSmemLayout,
+    GmemTiledCopyB gmem_tiled_copy_B, TC* C, CStride stride_C, CSmemLayout,
     CThreadLayout, TiledMMA mma, Alpha alpha, Beta beta)
 {
     CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{}); // (M, N, K)
     CUTE_STATIC_ASSERT_V(cute::rank(cta_tiler) ==
                          cute::Int<3>{}); // (BLK_M, BLK_N, BLK_K)
 
-    CUTE_STATIC_ASSERT_V(cute::size(gmem_copy_A) == cute::size(gmem_copy_B));
-    CUTE_STATIC_ASSERT_V(cute::size(gmem_copy_A) == cute::size(mma));
+    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) ==
+                         cute::size(gmem_tiled_copy_B));
+    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) == cute::size(mma));
 
     // CTA tiler has to be static.
     CUTE_STATIC_ASSERT_V(cute::is_static<CtaTiler>{});
@@ -117,12 +118,12 @@ __global__ void general_matrix_multiplication_gmem_tiled_copy_tiled_mma(
                                          smem_layout_B)}; // (BLK_N, BLK_K)
 
     // Partition via tiled copy.
-    auto thread_gmem_copy_A{gmem_copy_A.get_slice(threadIdx.x)};
+    auto thread_gmem_copy_A{gmem_tiled_copy_A.get_slice(threadIdx.x)};
     auto thread_layout_A_global_block_tensor_A{thread_gmem_copy_A.partition_S(
         global_block_tensor_A)}; // (CPY, CPY_M, CPY_K, k)
     auto thread_layout_A_smem_tensor_A{
         thread_gmem_copy_A.partition_D(smem_tensor_A)}; // (CPY, CPY_M, CPY_K)
-    auto thread_gmem_copy_B{gmem_copy_B.get_slice(threadIdx.x)};
+    auto thread_gmem_copy_B{gmem_tiled_copy_B.get_slice(threadIdx.x)};
     auto thread_layout_B_global_block_tensor_B{thread_gmem_copy_B.partition_S(
         global_block_tensor_B)}; // (CPY, CPY_N, CPY_K, k)
     auto thread_layout_B_smem_tensor_B{
@@ -237,7 +238,8 @@ __global__ void general_matrix_multiplication_gmem_tiled_copy_tiled_mma(
                     tile_idx_k * cute::size<1>(smem_tensor_A) <
                 cute::size<2>(shape_MNK))
             {
-                cute::copy_if(gmem_copy_A, thread_layout_A_predicate_tensor_A,
+                cute::copy_if(gmem_tiled_copy_A,
+                              thread_layout_A_predicate_tensor_A,
                               thread_layout_A_global_block_tensor_A(
                                   cute::_, cute::_, copy_k_idx, tile_idx_k),
                               thread_layout_A_smem_tensor_A(cute::_, cute::_,
@@ -255,7 +257,8 @@ __global__ void general_matrix_multiplication_gmem_tiled_copy_tiled_mma(
                     tile_idx_k * cute::size<1>(smem_tensor_B) <
                 cute::size<2>(shape_MNK))
             {
-                cute::copy_if(gmem_copy_B, thread_layout_B_predicate_tensor_B,
+                cute::copy_if(gmem_tiled_copy_B,
+                              thread_layout_B_predicate_tensor_B,
                               thread_layout_B_global_block_tensor_B(
                                   cute::_, cute::_, copy_k_idx, tile_idx_k),
                               thread_layout_B_smem_tensor_B(cute::_, cute::_,
@@ -297,18 +300,19 @@ template <class ProblemShape, class CtaTiler, class TA, class AStride,
 __global__ void
 general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
     ProblemShape shape_MNK, CtaTiler cta_tiler, TA const* A, AStride stride_A,
-    ASmemLayout smem_layout_A, AThreadLayout, GmemTiledCopyA gmem_copy_A,
-    SmemTiledCopyA smem_copy_A, TB const* B, BStride stride_B,
-    BSmemLayout smem_layout_B, BThreadLayout, GmemTiledCopyB gmem_copy_B,
-    SmemTiledCopyB smem_copy_B, TC* C, CStride stride_C, CSmemLayout,
+    ASmemLayout smem_layout_A, AThreadLayout, GmemTiledCopyA gmem_tiled_copy_A,
+    SmemTiledCopyA smem_tiled_copy_A, TB const* B, BStride stride_B,
+    BSmemLayout smem_layout_B, BThreadLayout, GmemTiledCopyB gmem_tiled_copy_B,
+    SmemTiledCopyB smem_tiled_copy_B, TC* C, CStride stride_C, CSmemLayout,
     CThreadLayout, TiledMMA mma, Alpha alpha, Beta beta)
 {
     CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{}); // (M, N, K)
     CUTE_STATIC_ASSERT_V(cute::rank(cta_tiler) ==
                          cute::Int<3>{}); // (BLK_M, BLK_N, BLK_K)
 
-    CUTE_STATIC_ASSERT_V(cute::size(gmem_copy_A) == cute::size(gmem_copy_B));
-    CUTE_STATIC_ASSERT_V(cute::size(gmem_copy_A) == cute::size(mma));
+    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) ==
+                         cute::size(gmem_tiled_copy_B));
+    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) == cute::size(mma));
 
     // CTA tiler has to be static.
     CUTE_STATIC_ASSERT_V(cute::is_static<CtaTiler>{});
@@ -401,12 +405,12 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
                                          smem_layout_B)}; // (BLK_N, BLK_K)
 
     // Partition via gmem tiled copy.
-    auto thread_gmem_copy_A{gmem_copy_A.get_slice(threadIdx.x)};
+    auto thread_gmem_copy_A{gmem_tiled_copy_A.get_slice(threadIdx.x)};
     auto thread_layout_A_global_block_tensor_A{thread_gmem_copy_A.partition_S(
         global_block_tensor_A)}; // (CPY, CPY_M, CPY_K, k)
     auto thread_layout_A_smem_tensor_A{
         thread_gmem_copy_A.partition_D(smem_tensor_A)}; // (CPY, CPY_M, CPY_K)
-    auto thread_gmem_copy_B{gmem_copy_B.get_slice(threadIdx.x)};
+    auto thread_gmem_copy_B{gmem_tiled_copy_B.get_slice(threadIdx.x)};
     auto thread_layout_B_global_block_tensor_B{thread_gmem_copy_B.partition_S(
         global_block_tensor_B)}; // (CPY, CPY_N, CPY_K, k)
     auto thread_layout_B_smem_tensor_B{
@@ -421,7 +425,7 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
         thread_mma.partition_fragment_B(smem_tensor_B)}; // (MMA, MMA_N, MMA_K)
 
     // Partition via smem tiled copy.
-    auto thread_smem_copy_A{smem_copy_A.get_slice(threadIdx.x)};
+    auto thread_smem_copy_A{smem_tiled_copy_A.get_slice(threadIdx.x)};
     auto thread_layout_C_smem_tensor_A{
         thread_smem_copy_A.partition_S(smem_tensor_A)}; // (CPY, CPY_M, CPY_K)
     auto thread_layout_C_register_tensor_A_copy_view{
@@ -433,7 +437,7 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
     CUTE_STATIC_ASSERT_V(
         cute::size<2>(thread_layout_C_smem_tensor_A) ==
         cute::size<2>(thread_layout_C_register_tensor_A_copy_view)); // CPY_K
-    auto thread_smem_copy_B{smem_copy_B.get_slice(threadIdx.x)};
+    auto thread_smem_copy_B{smem_tiled_copy_B.get_slice(threadIdx.x)};
     auto thread_layout_C_smem_tensor_B{
         thread_smem_copy_B.partition_S(smem_tensor_B)}; // (CPY, CPY_N, CPY_K)
     auto thread_layout_C_register_tensor_B_copy_view{
@@ -542,7 +546,8 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
                     tile_idx_k * cute::size<1>(smem_tensor_A) <
                 cute::size<2>(shape_MNK))
             {
-                cute::copy_if(gmem_copy_A, thread_layout_A_predicate_tensor_A,
+                cute::copy_if(gmem_tiled_copy_A,
+                              thread_layout_A_predicate_tensor_A,
                               thread_layout_A_global_block_tensor_A(
                                   cute::_, cute::_, copy_k_idx, tile_idx_k),
                               thread_layout_A_smem_tensor_A(cute::_, cute::_,
@@ -560,7 +565,8 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
                     tile_idx_k * cute::size<1>(smem_tensor_B) <
                 cute::size<2>(shape_MNK))
             {
-                cute::copy_if(gmem_copy_B, thread_layout_B_predicate_tensor_B,
+                cute::copy_if(gmem_tiled_copy_B,
+                              thread_layout_B_predicate_tensor_B,
                               thread_layout_B_global_block_tensor_B(
                                   cute::_, cute::_, copy_k_idx, tile_idx_k),
                               thread_layout_B_smem_tensor_B(cute::_, cute::_,
@@ -573,9 +579,9 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
         cute::cp_async_wait<0>();
         __syncthreads();
 
-        cute::copy(smem_copy_A, thread_layout_C_smem_tensor_A,
+        cute::copy(smem_tiled_copy_A, thread_layout_C_smem_tensor_A,
                    thread_layout_C_register_tensor_A_copy_view);
-        cute::copy(smem_copy_B, thread_layout_C_smem_tensor_B,
+        cute::copy(smem_tiled_copy_B, thread_layout_C_smem_tensor_B,
                    thread_layout_C_register_tensor_B_copy_view);
 
         // Compute gemm on thread_layout_C thread-partitioned smem.
@@ -606,17 +612,18 @@ template <class ProblemShape, class CtaTiler, class TA, class AStride,
 __global__ void
 general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
     ProblemShape shape_MNK, CtaTiler cta_tiler, TA const* A, AStride stride_A,
-    ASmemLayout smem_layout_A, AThreadLayout, GmemTiledCopyA gmem_copy_A,
+    ASmemLayout smem_layout_A, AThreadLayout, GmemTiledCopyA gmem_tiled_copy_A,
     TB const* B, BStride stride_B, BSmemLayout smem_layout_B, BThreadLayout,
-    GmemTiledCopyB gmem_copy_B, TC* C, CStride stride_C, CSmemLayout,
+    GmemTiledCopyB gmem_tiled_copy_B, TC* C, CStride stride_C, CSmemLayout,
     CThreadLayout, TiledMMA mma, Alpha alpha, Beta beta)
 {
     CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{}); // (M, N, K)
     CUTE_STATIC_ASSERT_V(cute::rank(cta_tiler) ==
                          cute::Int<3>{}); // (BLK_M, BLK_N, BLK_K)
 
-    CUTE_STATIC_ASSERT_V(cute::size(gmem_copy_A) == cute::size(gmem_copy_B));
-    CUTE_STATIC_ASSERT_V(cute::size(gmem_copy_A) == cute::size(mma));
+    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) ==
+                         cute::size(gmem_tiled_copy_B));
+    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) == cute::size(mma));
 
     // CTA tiler has to be static.
     CUTE_STATIC_ASSERT_V(cute::is_static<CtaTiler>{});
@@ -709,7 +716,7 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
                                          smem_layout_B)}; // (BLK_N, BLK_K)
 
     // Partition via tiled copy.
-    auto thread_gmem_copy_A{gmem_copy_A.get_slice(threadIdx.x)};
+    auto thread_gmem_copy_A{gmem_tiled_copy_A.get_slice(threadIdx.x)};
     auto thread_layout_A_global_block_tensor_A{thread_gmem_copy_A.partition_S(
         global_block_tensor_A)}; // (CPY, CPY_M, CPY_K, k)
     auto thread_layout_A_smem_tensor_A{
@@ -719,7 +726,7 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
     // registers for pipelining.
     auto thread_layout_A_register_tensor_A{cute::make_fragment_like(
         thread_layout_A_smem_tensor_A)}; // (CPY, CPY_M, CPY_K)
-    auto thread_gmem_copy_B{gmem_copy_B.get_slice(threadIdx.x)};
+    auto thread_gmem_copy_B{gmem_tiled_copy_B.get_slice(threadIdx.x)};
     auto thread_layout_B_global_block_tensor_B{thread_gmem_copy_B.partition_S(
         global_block_tensor_B)}; // (CPY, CPY_N, CPY_K, k)
     auto thread_layout_B_smem_tensor_B{
@@ -836,7 +843,7 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
                 0 * cute::size<1>(smem_tensor_A) <
             cute::size<2>(shape_MNK))
         {
-            cute::copy_if(gmem_copy_A, thread_layout_A_predicate_tensor_A,
+            cute::copy_if(gmem_tiled_copy_A, thread_layout_A_predicate_tensor_A,
                           thread_layout_A_global_block_tensor_A(
                               cute::_, cute::_, copy_k_idx, 0),
                           thread_layout_A_register_tensor_A(cute::_, cute::_,
@@ -853,7 +860,7 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
                 0 * cute::size<1>(smem_tensor_B) <
             cute::size<2>(shape_MNK))
         {
-            cute::copy_if(gmem_copy_B, thread_layout_B_predicate_tensor_B,
+            cute::copy_if(gmem_tiled_copy_B, thread_layout_B_predicate_tensor_B,
                           thread_layout_B_global_block_tensor_B(
                               cute::_, cute::_, copy_k_idx, 0),
                           thread_layout_B_register_tensor_B(cute::_, cute::_,
@@ -950,7 +957,8 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
                         cute::size<2>(shape_MNK))
                     {
                         cute::copy_if(
-                            gmem_copy_A, thread_layout_A_predicate_tensor_A,
+                            gmem_tiled_copy_A,
+                            thread_layout_A_predicate_tensor_A,
                             thread_layout_A_global_block_tensor_A(
                                 cute::_, cute::_, copy_k_idx, tile_idx_k_next),
                             thread_layout_A_register_tensor_A(cute::_, cute::_,
@@ -970,7 +978,8 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
                         cute::size<2>(shape_MNK))
                     {
                         cute::copy_if(
-                            gmem_copy_B, thread_layout_B_predicate_tensor_B,
+                            gmem_tiled_copy_B,
+                            thread_layout_B_predicate_tensor_B,
                             thread_layout_B_global_block_tensor_B(
                                 cute::_, cute::_, copy_k_idx, tile_idx_k_next),
                             thread_layout_B_register_tensor_B(cute::_, cute::_,
@@ -1003,9 +1012,9 @@ template <class ProblemShape, class CtaTiler, class TA, class AStride,
 __global__ void
 general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
     ProblemShape shape_MNK, CtaTiler cta_tiler, TA const* A, AStride stride_A,
-    ASmemLayout smem_layout_A, AThreadLayout, GmemTiledCopyA gmem_copy_A,
+    ASmemLayout smem_layout_A, AThreadLayout, GmemTiledCopyA gmem_tiled_copy_A,
     TB const* B, BStride stride_B, BSmemLayout smem_layout_B, BThreadLayout,
-    GmemTiledCopyB gmem_copy_B, TC* C, CStride stride_C, CSmemLayout,
+    GmemTiledCopyB gmem_tiled_copy_B, TC* C, CStride stride_C, CSmemLayout,
     CThreadLayout, TiledMMA mma, Alpha alpha, Beta beta)
 {
     CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{}); // (M, N, K)
@@ -1020,8 +1029,9 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
     CUTE_STATIC_ASSERT_V(cute::is_static<BSmemLayout>{});
     CUTE_STATIC_ASSERT_V(cute::is_static<CSmemLayout>{});
 
-    CUTE_STATIC_ASSERT_V(cute::size(gmem_copy_A) == cute::size(gmem_copy_B));
-    CUTE_STATIC_ASSERT_V(cute::size(gmem_copy_A) == cute::size(mma));
+    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) ==
+                         cute::size(gmem_tiled_copy_B));
+    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) == cute::size(mma));
 
     // Shared memory layouts have to match CTA tiler.
     CUTE_STATIC_ASSERT_V(cute::size<0>(smem_layout_A) ==
@@ -1114,7 +1124,7 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
         cute::make_smem_ptr(smem_B), smem_layout_B)}; // (BLK_N, BLK_K, PIPE)
 
     // Partition via tiled copy.
-    auto thread_gmem_copy_A{gmem_copy_A.get_slice(threadIdx.x)};
+    auto thread_gmem_copy_A{gmem_tiled_copy_A.get_slice(threadIdx.x)};
     auto thread_layout_A_global_block_tensor_A{thread_gmem_copy_A.partition_S(
         global_block_tensor_A)}; // (CPY, CPY_M, CPY_K, k)
     auto thread_layout_A_smem_tensor_A{thread_gmem_copy_A.partition_D(
@@ -1124,7 +1134,7 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
     // registers for pipelining.
     auto thread_layout_A_register_tensor_A{cute::make_fragment_like(
         thread_layout_A_smem_tensor_A)}; // (CPY, CPY_M, CPY_K, PIPE)
-    auto thread_gmem_copy_B{gmem_copy_B.get_slice(threadIdx.x)};
+    auto thread_gmem_copy_B{gmem_tiled_copy_B.get_slice(threadIdx.x)};
     auto thread_layout_B_global_block_tensor_B{thread_gmem_copy_B.partition_S(
         global_block_tensor_B)}; // (CPY, CPY_N, CPY_K, k)
     auto thread_layout_B_smem_tensor_B{thread_gmem_copy_B.partition_D(
@@ -1247,12 +1257,12 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
          ++pipeline_idx)
     {
 #ifdef NO_BOUNDS_CHECK
-        cute::copy(gmem_copy_A,
+        cute::copy(gmem_tiled_copy_A,
                    thread_layout_A_global_block_tensor_A(
                        cute::_, cute::_, cute::_, tile_idx_next),
                    thread_layout_A_smem_tensor_A(cute::_, cute::_, cute::_,
                                                  pipeline_idx));
-        cute::copy(gmem_copy_B,
+        cute::copy(gmem_tiled_copy_B,
                    thread_layout_B_global_block_tensor_B(
                        cute::_, cute::_, cute::_, tile_idx_next),
                    thread_layout_B_smem_tensor_B(cute::_, cute::_, cute::_,
@@ -1275,7 +1285,8 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
                     tile_idx_next * cute::size<1>(smem_tensor_A) <
                 cute::size<2>(shape_MNK))
             {
-                cute::copy_if(gmem_copy_A, thread_layout_A_predicate_tensor_A,
+                cute::copy_if(gmem_tiled_copy_A,
+                              thread_layout_A_predicate_tensor_A,
                               thread_layout_A_global_block_tensor_A(
                                   cute::_, cute::_, copy_k_idx, tile_idx_next),
                               thread_layout_A_smem_tensor_A(
@@ -1293,7 +1304,8 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
                     tile_idx_next * cute::size<1>(smem_tensor_B) <
                 cute::size<2>(shape_MNK))
             {
-                cute::copy_if(gmem_copy_B, thread_layout_B_predicate_tensor_B,
+                cute::copy_if(gmem_tiled_copy_B,
+                              thread_layout_B_predicate_tensor_B,
                               thread_layout_B_global_block_tensor_B(
                                   cute::_, cute::_, copy_k_idx, tile_idx_next),
                               thread_layout_B_smem_tensor_B(
@@ -1397,12 +1409,12 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
             if (mma_idx_k == 0)
             {
 #ifdef NO_BOUNDS_CHECK
-                cute::copy(gmem_copy_A,
+                cute::copy(gmem_tiled_copy_A,
                            thread_layout_A_global_block_tensor_A(
                                cute::_, cute::_, cute::_, tile_idx_next),
                            thread_layout_A_smem_tensor_A(
                                cute::_, cute::_, cute::_, smem_pipeline_write));
-                cute::copy(gmem_copy_B,
+                cute::copy(gmem_tiled_copy_B,
                            thread_layout_B_global_block_tensor_B(
                                cute::_, cute::_, cute::_, tile_idx_next),
                            thread_layout_B_smem_tensor_B(
@@ -1429,7 +1441,8 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
                         cute::size<2>(shape_MNK))
                     {
                         cute::copy_if(
-                            gmem_copy_A, thread_layout_A_predicate_tensor_A,
+                            gmem_tiled_copy_A,
+                            thread_layout_A_predicate_tensor_A,
                             thread_layout_A_global_block_tensor_A(
                                 cute::_, cute::_, copy_k_idx, tile_idx_next),
                             thread_layout_A_smem_tensor_A(cute::_, cute::_,
@@ -1450,7 +1463,8 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
                         cute::size<2>(shape_MNK))
                     {
                         cute::copy_if(
-                            gmem_copy_B, thread_layout_B_predicate_tensor_B,
+                            gmem_tiled_copy_B,
+                            thread_layout_B_predicate_tensor_B,
                             thread_layout_B_global_block_tensor_B(
                                 cute::_, cute::_, copy_k_idx, tile_idx_next),
                             thread_layout_B_smem_tensor_B(cute::_, cute::_,
@@ -1504,10 +1518,10 @@ template <class ProblemShape, class CtaTiler, class TA, class AStride,
 __global__ void
 general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pipeline(
     ProblemShape shape_MNK, CtaTiler cta_tiler, TA const* A, AStride stride_A,
-    ASmemLayout smem_layout_A, AThreadLayout, GmemTiledCopyA gmem_copy_A,
-    SmemTiledCopyA smem_copy_A, TB const* B, BStride stride_B,
-    BSmemLayout smem_layout_B, BThreadLayout, GmemTiledCopyB gmem_copy_B,
-    SmemTiledCopyB smem_copy_B, TC* C, CStride stride_C, CSmemLayout,
+    ASmemLayout smem_layout_A, AThreadLayout, GmemTiledCopyA gmem_tiled_copy_A,
+    SmemTiledCopyA smem_tiled_copy_A, TB const* B, BStride stride_B,
+    BSmemLayout smem_layout_B, BThreadLayout, GmemTiledCopyB gmem_tiled_copy_B,
+    SmemTiledCopyB smem_tiled_copy_B, TC* C, CStride stride_C, CSmemLayout,
     CThreadLayout, TiledMMA mma, Alpha alpha, Beta beta)
 {
     CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{}); // (M, N, K)
@@ -1522,8 +1536,9 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
     CUTE_STATIC_ASSERT_V(cute::is_static<BSmemLayout>{});
     CUTE_STATIC_ASSERT_V(cute::is_static<CSmemLayout>{});
 
-    CUTE_STATIC_ASSERT_V(cute::size(gmem_copy_A) == cute::size(gmem_copy_B));
-    CUTE_STATIC_ASSERT_V(cute::size(gmem_copy_A) == cute::size(mma));
+    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) ==
+                         cute::size(gmem_tiled_copy_B));
+    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) == cute::size(mma));
 
     // Shared memory layouts have to match CTA tiler.
     CUTE_STATIC_ASSERT_V(cute::size<0>(smem_layout_A) ==
@@ -1616,7 +1631,7 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
         cute::make_smem_ptr(smem_B), smem_layout_B)}; // (BLK_N, BLK_K, PIPE)
 
     // Partition via tiled copy.
-    auto thread_gmem_copy_A{gmem_copy_A.get_slice(threadIdx.x)};
+    auto thread_gmem_copy_A{gmem_tiled_copy_A.get_slice(threadIdx.x)};
     auto thread_layout_A_global_block_tensor_A{thread_gmem_copy_A.partition_S(
         global_block_tensor_A)}; // (CPY, CPY_M, CPY_K, k)
     auto thread_layout_A_smem_tensor_A{thread_gmem_copy_A.partition_D(
@@ -1626,7 +1641,7 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
     // registers for pipelining.
     auto thread_layout_A_register_tensor_A{cute::make_fragment_like(
         thread_layout_A_smem_tensor_A)}; // (CPY, CPY_M, CPY_K, PIPE)
-    auto thread_gmem_copy_B{gmem_copy_B.get_slice(threadIdx.x)};
+    auto thread_gmem_copy_B{gmem_tiled_copy_B.get_slice(threadIdx.x)};
     auto thread_layout_B_global_block_tensor_B{thread_gmem_copy_B.partition_S(
         global_block_tensor_B)}; // (CPY, CPY_N, CPY_K, k)
     auto thread_layout_B_smem_tensor_B{thread_gmem_copy_B.partition_D(
@@ -1648,7 +1663,7 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
             cute::_, cute::_, cute::Int<0>{}))}; // (MMA, MMA_N, MMA_K)
 
     // Partition via smem tiled copy.
-    auto thread_smem_copy_A{smem_copy_A.get_slice(threadIdx.x)};
+    auto thread_smem_copy_A{smem_tiled_copy_A.get_slice(threadIdx.x)};
     auto thread_layout_C_smem_tensor_A{thread_smem_copy_A.partition_S(
         smem_tensor_A)}; // (CPY, CPY_M, CPY_K, PIPE)
     auto thread_layout_C_register_tensor_A_copy_view{
@@ -1660,7 +1675,7 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
     CUTE_STATIC_ASSERT_V(
         cute::size<2>(thread_layout_C_smem_tensor_A) ==
         cute::size<2>(thread_layout_C_register_tensor_A_copy_view)); // CPY_K
-    auto thread_smem_copy_B{smem_copy_B.get_slice(threadIdx.x)};
+    auto thread_smem_copy_B{smem_tiled_copy_B.get_slice(threadIdx.x)};
     auto thread_layout_C_smem_tensor_B{thread_smem_copy_B.partition_S(
         smem_tensor_B)}; // (CPY, CPY_N, CPY_K, PIPE)
     auto thread_layout_C_register_tensor_B_copy_view{
@@ -1766,12 +1781,12 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
          ++pipeline_idx)
     {
 #ifdef NO_BOUNDS_CHECK
-        cute::copy(gmem_copy_A,
+        cute::copy(gmem_tiled_copy_A,
                    thread_layout_A_global_block_tensor_A(
                        cute::_, cute::_, cute::_, tile_idx_next),
                    thread_layout_A_smem_tensor_A(cute::_, cute::_, cute::_,
                                                  pipeline_idx));
-        cute::copy(gmem_copy_B,
+        cute::copy(gmem_tiled_copy_B,
                    thread_layout_B_global_block_tensor_B(
                        cute::_, cute::_, cute::_, tile_idx_next),
                    thread_layout_B_smem_tensor_B(cute::_, cute::_, cute::_,
@@ -1794,7 +1809,8 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
                     tile_idx_next * cute::size<1>(smem_tensor_A) <
                 cute::size<2>(shape_MNK))
             {
-                cute::copy_if(gmem_copy_A, thread_layout_A_predicate_tensor_A,
+                cute::copy_if(gmem_tiled_copy_A,
+                              thread_layout_A_predicate_tensor_A,
                               thread_layout_A_global_block_tensor_A(
                                   cute::_, cute::_, copy_k_idx, tile_idx_next),
                               thread_layout_A_smem_tensor_A(
@@ -1812,7 +1828,8 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
                     tile_idx_next * cute::size<1>(smem_tensor_B) <
                 cute::size<2>(shape_MNK))
             {
-                cute::copy_if(gmem_copy_B, thread_layout_B_predicate_tensor_B,
+                cute::copy_if(gmem_tiled_copy_B,
+                              thread_layout_B_predicate_tensor_B,
                               thread_layout_B_global_block_tensor_B(
                                   cute::_, cute::_, copy_k_idx, tile_idx_next),
                               thread_layout_B_smem_tensor_B(
@@ -1868,12 +1885,12 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
         __syncthreads();
 
         // Prefetch the first register pipeline.
-        cute::copy(smem_copy_A,
+        cute::copy(smem_tiled_copy_A,
                    thread_layout_C_smem_tensor_A_current_smem_pipeline(
                        cute::_, cute::_, cute::Int<0>{}),
                    thread_layout_C_register_tensor_A_copy_view(cute::_, cute::_,
                                                                cute::Int<0>{}));
-        cute::copy(smem_copy_B,
+        cute::copy(smem_tiled_copy_B,
                    thread_layout_C_smem_tensor_B_current_smem_pipeline(
                        cute::_, cute::_, cute::Int<0>{}),
                    thread_layout_C_register_tensor_B_copy_view(cute::_, cute::_,
@@ -1905,12 +1922,12 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
             // Load data to the register for the next mma iteration.
             auto const mma_idx_k_next{(mma_idx_k + cute::Int<1>{}) %
                                       NUM_REGISTER_PIPELINES};
-            cute::copy(smem_copy_A,
+            cute::copy(smem_tiled_copy_A,
                        thread_layout_C_smem_tensor_A_current_smem_pipeline(
                            cute::_, cute::_, mma_idx_k_next),
                        thread_layout_C_register_tensor_A_copy_view(
                            cute::_, cute::_, mma_idx_k_next));
-            cute::copy(smem_copy_B,
+            cute::copy(smem_tiled_copy_B,
                        thread_layout_C_smem_tensor_B_current_smem_pipeline(
                            cute::_, cute::_, mma_idx_k_next),
                        thread_layout_C_register_tensor_B_copy_view(
@@ -1920,12 +1937,12 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
             if (mma_idx_k == 0)
             {
 #ifdef NO_BOUNDS_CHECK
-                cute::copy(gmem_copy_A,
+                cute::copy(gmem_tiled_copy_A,
                            thread_layout_A_global_block_tensor_A(
                                cute::_, cute::_, cute::_, tile_idx_next),
                            thread_layout_A_smem_tensor_A(
                                cute::_, cute::_, cute::_, smem_pipeline_write));
-                cute::copy(gmem_copy_B,
+                cute::copy(gmem_tiled_copy_B,
                            thread_layout_B_global_block_tensor_B(
                                cute::_, cute::_, cute::_, tile_idx_next),
                            thread_layout_B_smem_tensor_B(
@@ -1952,7 +1969,8 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
                         cute::size<2>(shape_MNK))
                     {
                         cute::copy_if(
-                            gmem_copy_A, thread_layout_A_predicate_tensor_A,
+                            gmem_tiled_copy_A,
+                            thread_layout_A_predicate_tensor_A,
                             thread_layout_A_global_block_tensor_A(
                                 cute::_, cute::_, copy_k_idx, tile_idx_next),
                             thread_layout_A_smem_tensor_A(cute::_, cute::_,
@@ -1973,7 +1991,8 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
                         cute::size<2>(shape_MNK))
                     {
                         cute::copy_if(
-                            gmem_copy_B, thread_layout_B_predicate_tensor_B,
+                            gmem_tiled_copy_B,
+                            thread_layout_B_predicate_tensor_B,
                             thread_layout_B_global_block_tensor_B(
                                 cute::_, cute::_, copy_k_idx, tile_idx_next),
                             thread_layout_B_smem_tensor_B(cute::_, cute::_,

@@ -119,7 +119,7 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
         cute::Int<1>{}, cute::size<0>(vector_shape_A))}; // column-major
     auto const vector_layout_A{cute::make_layout(
         vector_shape_A, vector_stride_A)}; // (NUM_VECTOR_ELEMENTS_A, 1)
-    auto gmem_copy_A{cute::make_tiled_copy(
+    auto gmem_tiled_copy_A{cute::make_tiled_copy(
         cute::Copy_Atom<cute::UniversalCopy<VectorTypeA>, TA>{},
         thread_layout_A,
         vector_layout_A)}; // Thread layout: (THR_M, THR_K) Value layout:
@@ -137,7 +137,7 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
         cute::Int<1>{}, cute::size<0>(vector_shape_B))}; // column-major
     auto const vector_layout_B{cute::make_layout(
         vector_shape_B, vector_stride_B)}; // (NUM_VECTOR_ELEMENTS_B, 1)
-    auto gmem_copy_B{cute::make_tiled_copy(
+    auto gmem_tiled_copy_B{cute::make_tiled_copy(
         cute::Copy_Atom<cute::UniversalCopy<VectorTypeB>, TB>{},
         thread_layout_B,
         vector_layout_B)}; // Thread layout: (THR_N, THR_K) Value layout:
@@ -184,8 +184,8 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
     general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline<<<
         grid_dims, block_dims, 0, stream>>>(
         gemm_shape, cta_tiler, A, stride_A, smem_layout_A_swizzled,
-        thread_layout_A, gmem_copy_A, B, stride_B, smem_layout_B_swizzled,
-        thread_layout_B, gmem_copy_B, C, stride_C, smem_layout_C,
+        thread_layout_A, gmem_tiled_copy_A, B, stride_B, smem_layout_B_swizzled,
+        thread_layout_B, gmem_tiled_copy_B, C, stride_C, smem_layout_C,
         thread_layout_C, mma, alpha, beta);
 
     return cudaGetLastError();
