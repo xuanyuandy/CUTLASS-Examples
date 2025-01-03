@@ -53,10 +53,13 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
     auto const swizzle_B{
         cute::Swizzle<NUM_MASK_BITS_B, NUM_BASE_BITS_B, NUM_SHIFT_BITS_B>{}};
 
+    // We will use SM75_U16x8_LDSM_T to ldmatrix .x4 load 4 8 x 8 matrix with
+    // 16-bit elements from shared memory to register.
+    // Therefore, the shared memory atom shapes are (32, 8) column-major.
     auto const smem_atom_shape_A{
-        cute::make_shape(cute::Int<32>{}, cute::Int<1>{})};
+        cute::make_shape(cute::Int<32>{}, cute::Int<8>{})};
     auto const smem_atom_shape_B{
-        cute::make_shape(cute::Int<32>{}, cute::Int<1>{})};
+        cute::make_shape(cute::Int<32>{}, cute::Int<8>{})};
     auto const smem_atom_layout_A{cute::make_layout(smem_atom_shape_A)};
     auto const smem_atom_layout_B{cute::make_layout(smem_atom_shape_B)};
     auto const smem_shape_A{cute::make_shape(bM, bK)}; // (BLK_M, BLK_K)
@@ -204,6 +207,11 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
     CUTE_STATIC_ASSERT(std::is_same_v<TB, cute::half_t>);
     CUTE_STATIC_ASSERT(std::is_same_v<TC, cute::half_t>);
 
+    // Our shared memory layouts for both matrix A and B are always M x K and N
+    // x K column-major. Therefore, we have to use the LDSM_T copy atom for both
+    // shared memory tiled copies for matrix A and B.
+    // LDSM_T: source layout is column-major.
+    // LDSM_N: source layout is row-major.
     auto smem_tiled_copy_A{cute::make_tiled_copy_A(
         cute::Copy_Atom<cute::SM75_U16x8_LDSM_T, TA>{}, mma)};
     auto smem_tiled_copy_B{cute::make_tiled_copy_B(
