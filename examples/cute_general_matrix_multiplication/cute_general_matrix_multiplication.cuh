@@ -160,6 +160,9 @@ __global__ void general_matrix_multiplication_gmem_tiled_copy_tiled_mma(
     // Clear the accumulators.
     cute::clear(thread_layout_C_register_tensor_C);
 
+#ifdef NO_BOUNDS_CHECK
+
+#else
     // Create identity tensors.
     auto identity_tensor_A{cute::make_identity_tensor(cute::make_shape(
         cute::size<0>(smem_tensor_A), cute::size<1>(smem_tensor_A)))};
@@ -214,12 +217,23 @@ __global__ void general_matrix_multiplication_gmem_tiled_copy_tiled_mma(
                     blockIdx.y * cute::size<1>(global_block_tensor_C) <
                 cute::size<1>(shape_MNK);
     }
+#endif
 
     // Perform the gemm computation loop.
     auto const num_tiles_k{cute::size<2>(global_block_tensor_A)}; // k
 
     for (auto tile_idx_k{0}; tile_idx_k < num_tiles_k; ++tile_idx_k)
     {
+#ifdef NO_BOUNDS_CHECK
+        cute::copy(gmem_tiled_copy_A,
+                   thread_layout_A_global_block_tensor_A(cute::_, cute::_,
+                                                         cute::_, tile_idx_k),
+                   thread_layout_A_smem_tensor_A);
+        cute::copy(gmem_tiled_copy_B,
+                   thread_layout_B_global_block_tensor_B(cute::_, cute::_,
+                                                         cute::_, tile_idx_k),
+                   thread_layout_B_smem_tensor_B);
+#else
         // Clear the shared memory buffers.
         // This is necessary when predicates are used for copying data from
         // global memory to shared memory so that mma will not be affected by
@@ -265,6 +279,7 @@ __global__ void general_matrix_multiplication_gmem_tiled_copy_tiled_mma(
                                                             copy_k_idx));
             }
         }
+#endif
 
         // Synchronize the threads to ensure the data copy is completed.
         cute::cp_async_fence();
@@ -286,9 +301,14 @@ __global__ void general_matrix_multiplication_gmem_tiled_copy_tiled_mma(
     // Scale and accumulate the result from the register tensor to the global
     // block tensor.
     // There does not seem to be a tiled axpby existing yet.
+#ifdef NO_BOUNDS_CHECK
+    cute::axpby(alpha, thread_layout_C_register_tensor_C, beta,
+                thread_layout_C_global_block_tensor_C);
+#else
     cute::axpby(alpha, thread_layout_C_register_tensor_C, beta,
                 thread_layout_C_global_block_tensor_C,
                 thread_layout_C_predicate_tensor_C);
+#endif
 }
 
 template <class ProblemShape, class CtaTiler, class TA, class AStride,
@@ -468,6 +488,9 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
     // Clear the accumulators.
     cute::clear(thread_layout_C_register_tensor_C);
 
+#ifdef NO_BOUNDS_CHECK
+
+#else
     // Create identity tensors.
     auto identity_tensor_A{cute::make_identity_tensor(cute::make_shape(
         cute::size<0>(smem_tensor_A), cute::size<1>(smem_tensor_A)))};
@@ -522,12 +545,23 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
                     blockIdx.y * cute::size<1>(global_block_tensor_C) <
                 cute::size<1>(shape_MNK);
     }
+#endif
 
     // Perform the gemm computation loop.
     auto const num_tiles_k{cute::size<2>(global_block_tensor_A)}; // k
 
     for (auto tile_idx_k{0}; tile_idx_k < num_tiles_k; ++tile_idx_k)
     {
+#ifdef NO_BOUNDS_CHECK
+        cute::copy(gmem_tiled_copy_A,
+                   thread_layout_A_global_block_tensor_A(cute::_, cute::_,
+                                                         cute::_, tile_idx_k),
+                   thread_layout_A_smem_tensor_A);
+        cute::copy(gmem_tiled_copy_B,
+                   thread_layout_B_global_block_tensor_B(cute::_, cute::_,
+                                                         cute::_, tile_idx_k),
+                   thread_layout_B_smem_tensor_B);
+#else
         // Clear the shared memory buffers.
         // This is necessary when predicates are used for copying data from
         // global memory to shared memory so that mma will not be affected by
@@ -573,6 +607,7 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
                                                             copy_k_idx));
             }
         }
+#endif
 
         // Synchronize the threads to ensure the data copy is completed.
         cute::cp_async_fence();
@@ -599,9 +634,14 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
     // Scale and accumulate the result from the register tensor to the global
     // block tensor.
     // There does not seem to be a tiled axpby existing yet.
+#ifdef NO_BOUNDS_CHECK
+    cute::axpby(alpha, thread_layout_C_register_tensor_C, beta,
+                thread_layout_C_global_block_tensor_C);
+#else
     cute::axpby(alpha, thread_layout_C_register_tensor_C, beta,
                 thread_layout_C_global_block_tensor_C,
                 thread_layout_C_predicate_tensor_C);
+#endif
 }
 
 template <class ProblemShape, class CtaTiler, class TA, class AStride,
@@ -773,6 +813,9 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
     cute::clear(thread_layout_C_register_tensor_C);
 
     // Create identity tensors.
+#ifdef NO_BOUNDS_CHECK
+
+#else
     auto identity_tensor_A{cute::make_identity_tensor(cute::make_shape(
         cute::size<0>(smem_tensor_A), cute::size<1>(smem_tensor_A)))};
     auto identity_tensor_B{cute::make_identity_tensor(cute::make_shape(
@@ -825,11 +868,22 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
                     blockIdx.y * cute::size<1>(global_block_tensor_C) <
                 cute::size<1>(shape_MNK);
     }
+#endif
 
     // Perform SM70 pipelining.
 
     // Prefetch.
     // Copy from global memory to shared memory for tile_idx_k = 0.
+#ifdef NO_BOUNDS_CHECK
+    cute::copy(
+        gmem_tiled_copy_A,
+        thread_layout_A_global_block_tensor_A(cute::_, cute::_, cute::_, 0),
+        thread_layout_A_register_tensor_A);
+    cute::copy(
+        gmem_tiled_copy_B,
+        thread_layout_B_global_block_tensor_B(cute::_, cute::_, cute::_, 0),
+        thread_layout_B_register_tensor_B);
+#else
     cute::clear(thread_layout_A_register_tensor_A);
     cute::clear(thread_layout_B_register_tensor_B);
     // Need predicates for bounds checking.
@@ -867,6 +921,7 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
                                                             copy_k_idx));
         }
     }
+#endif
 
     // Prepare the shared memory for the first tile iteration.
     // Copy from register to shared memory for tile_idx_k = 0.
@@ -941,6 +996,16 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
             if (mma_idx_k == 0)
             {
                 auto const tile_idx_k_next{(tile_idx_k + 1) % num_tiles_k};
+#ifdef NO_BOUNDS_CHECK
+                cute::copy(gmem_tiled_copy_A,
+                           thread_layout_A_global_block_tensor_A(
+                               cute::_, cute::_, cute::_, tile_idx_k_next),
+                           thread_layout_A_register_tensor_A);
+                cute::copy(gmem_tiled_copy_B,
+                           thread_layout_B_global_block_tensor_B(
+                               cute::_, cute::_, cute::_, tile_idx_k_next),
+                           thread_layout_B_register_tensor_B);
+#else
                 cute::clear(thread_layout_A_register_tensor_A);
                 cute::clear(thread_layout_B_register_tensor_B);
                 // Need predicates for bounds checking.
@@ -986,6 +1051,7 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
                                                               copy_k_idx));
                     }
                 }
+#endif
             }
             // Perform mma for the current mma iteration.
             cute::gemm(
@@ -999,9 +1065,14 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
     // Scale and accumulate the result from the register tensor to the global
     // block tensor.
     // There does not seem to be a tiled axpby existing yet.
+#ifdef NO_BOUNDS_CHECK
+    cute::axpby(alpha, thread_layout_C_register_tensor_C, beta,
+                thread_layout_C_global_block_tensor_C);
+#else
     cute::axpby(alpha, thread_layout_C_register_tensor_C, beta,
                 thread_layout_C_global_block_tensor_C,
                 thread_layout_C_predicate_tensor_C);
+#endif
 }
 
 template <class ProblemShape, class CtaTiler, class TA, class AStride,

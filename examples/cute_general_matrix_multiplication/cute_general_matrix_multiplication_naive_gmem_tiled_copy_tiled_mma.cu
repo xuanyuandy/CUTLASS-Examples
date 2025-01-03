@@ -28,8 +28,8 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
     auto const gemm_shape{cute::make_shape(M, N, K)}; // (M, N, K)
 
     // Define CTA size.
-    auto const bM{cute::Int<128 * 4 / sizeof(TA)>{}};
-    auto const bN{cute::Int<128 * 4 / sizeof(TB)>{}};
+    auto const bM{cute::Int<128 * 2 / sizeof(TA)>{}};
+    auto const bN{cute::Int<128 * 2 / sizeof(TB)>{}};
     auto const bK{cute::Int<32>{}};
     auto const cta_tiler{cute::make_shape(bM, bN, bK)}; // (BLK_M, BLK_N, BLK_K)
 
@@ -55,11 +55,11 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
 
     // Define thread layouts.
     auto const thread_shape_A{
-        cute::make_shape(cute::Int<32>{}, cute::Int<8>{})}; // (THR_M, THR_K)
+        cute::make_shape(cute::Int<16>{}, cute::Int<8>{})}; // (THR_M, THR_K)
     auto const thread_shape_B{
-        cute::make_shape(cute::Int<32>{}, cute::Int<8>{})}; // (THR_N, THR_K)
+        cute::make_shape(cute::Int<16>{}, cute::Int<8>{})}; // (THR_N, THR_K)
     auto const thread_shape_C{
-        cute::make_shape(cute::Int<16>{}, cute::Int<16>{})}; // (THR_M, THR_N)
+        cute::make_shape(cute::Int<16>{}, cute::Int<8>{})}; // (THR_M, THR_N)
     auto const thread_stride_A{cute::make_stride(
         cute::Int<1>{}, cute::size<0>(thread_shape_A))}; // column-major
     auto const thread_stride_B{cute::make_stride(
