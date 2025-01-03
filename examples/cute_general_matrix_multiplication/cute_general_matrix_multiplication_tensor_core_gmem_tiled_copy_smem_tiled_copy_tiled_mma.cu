@@ -199,9 +199,9 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
     auto mma_tile{cute::make_tile(cute::Int<MMA_TILE_M>{},
                                   cute::Int<MMA_TILE_N>{},
                                   cute::Int<MMA_TILE_K>{})};
-    auto mma{cute::make_tiled_mma(mma_atom, mma_layout, mma_tile)};
+    auto tiled_mma{cute::make_tiled_mma(mma_atom, mma_layout, mma_tile)};
 
-    CUTE_STATIC_ASSERT_V(cute::size(mma) == cute::size(thread_layout_C));
+    CUTE_STATIC_ASSERT_V(cute::size(tiled_mma) == cute::size(thread_layout_C));
     // Static assert types because of the MMA instruction.
     CUTE_STATIC_ASSERT(std::is_same_v<TA, cute::half_t>);
     CUTE_STATIC_ASSERT(std::is_same_v<TB, cute::half_t>);
@@ -213,9 +213,9 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
     // LDSM_T: source layout is column-major.
     // LDSM_N: source layout is row-major.
     auto smem_tiled_copy_A{cute::make_tiled_copy_A(
-        cute::Copy_Atom<cute::SM75_U16x8_LDSM_T, TA>{}, mma)};
+        cute::Copy_Atom<cute::SM75_U16x8_LDSM_T, TA>{}, tiled_mma)};
     auto smem_tiled_copy_B{cute::make_tiled_copy_B(
-        cute::Copy_Atom<cute::SM75_U16x8_LDSM_T, TB>{}, mma)};
+        cute::Copy_Atom<cute::SM75_U16x8_LDSM_T, TB>{}, tiled_mma)};
 
     // Launch the kernel.
     dim3 const block_dims{
@@ -228,7 +228,7 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
         gemm_shape, cta_tiler, A, stride_A, smem_layout_A, thread_layout_A,
         gmem_tiled_copy_A, smem_tiled_copy_A, B, stride_B, smem_layout_B,
         thread_layout_B, gmem_tiled_copy_B, smem_tiled_copy_B, C, stride_C,
-        smem_layout_C, thread_layout_C, mma, alpha, beta);
+        smem_layout_C, thread_layout_C, tiled_mma, alpha, beta);
 
     return cudaGetLastError();
 }

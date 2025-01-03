@@ -17,7 +17,7 @@ __global__ void general_matrix_multiplication_gmem_tiled_copy_tiled_mma(
     ASmemLayout smem_layout_A, AThreadLayout, GmemTiledCopyA gmem_tiled_copy_A,
     TB const* B, BStride stride_B, BSmemLayout smem_layout_B, BThreadLayout,
     GmemTiledCopyB gmem_tiled_copy_B, TC* C, CStride stride_C, CSmemLayout,
-    CThreadLayout, TiledMMA mma, Alpha alpha, Beta beta)
+    CThreadLayout, TiledMMA tiled_mma, Alpha alpha, Beta beta)
 {
     CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{}); // (M, N, K)
     CUTE_STATIC_ASSERT_V(cute::rank(cta_tiler) ==
@@ -25,7 +25,8 @@ __global__ void general_matrix_multiplication_gmem_tiled_copy_tiled_mma(
 
     CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) ==
                          cute::size(gmem_tiled_copy_B));
-    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) == cute::size(mma));
+    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) ==
+                         cute::size(tiled_mma));
 
     // CTA tiler has to be static.
     CUTE_STATIC_ASSERT_V(cute::is_static<CtaTiler>{});
@@ -130,7 +131,7 @@ __global__ void general_matrix_multiplication_gmem_tiled_copy_tiled_mma(
         thread_gmem_copy_B.partition_D(smem_tensor_B)}; // (CPY, CPY_N, CPY_K)
 
     // Partition via MMA.
-    auto thread_mma{mma.get_slice(threadIdx.x)};
+    auto thread_mma{tiled_mma.get_slice(threadIdx.x)};
     auto thread_layout_C_smem_tensor_A{
         thread_mma.partition_A(smem_tensor_A)}; // (MMA, MMA_M, MMA_K)
     auto thread_layout_C_smem_tensor_B{
@@ -288,7 +289,7 @@ __global__ void general_matrix_multiplication_gmem_tiled_copy_tiled_mma(
 
         // Compute gemm on thread_layout_C thread-partitioned smem.
         // This implicitly uses the UniversalFMA GEMM atom.
-        cute::gemm(mma, thread_layout_C_smem_tensor_A,
+        cute::gemm(tiled_mma, thread_layout_C_smem_tensor_A,
                    thread_layout_C_smem_tensor_B,
                    thread_layout_C_register_tensor_C); // (BLK_M / THR_M, BLK_N
                                                        // / THR_N) += (BLK_M /
@@ -324,7 +325,7 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
     SmemTiledCopyA smem_tiled_copy_A, TB const* B, BStride stride_B,
     BSmemLayout smem_layout_B, BThreadLayout, GmemTiledCopyB gmem_tiled_copy_B,
     SmemTiledCopyB smem_tiled_copy_B, TC* C, CStride stride_C, CSmemLayout,
-    CThreadLayout, TiledMMA mma, Alpha alpha, Beta beta)
+    CThreadLayout, TiledMMA tiled_mma, Alpha alpha, Beta beta)
 {
     CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{}); // (M, N, K)
     CUTE_STATIC_ASSERT_V(cute::rank(cta_tiler) ==
@@ -332,7 +333,8 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
 
     CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) ==
                          cute::size(gmem_tiled_copy_B));
-    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) == cute::size(mma));
+    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) ==
+                         cute::size(tiled_mma));
 
     // CTA tiler has to be static.
     CUTE_STATIC_ASSERT_V(cute::is_static<CtaTiler>{});
@@ -437,7 +439,7 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
         thread_gmem_copy_B.partition_D(smem_tensor_B)}; // (CPY, CPY_N, CPY_K)
 
     // Partition via MMA.
-    auto thread_mma{mma.get_slice(threadIdx.x)};
+    auto thread_mma{tiled_mma.get_slice(threadIdx.x)};
     // Tensor used for MMA.
     auto thread_layout_C_register_tensor_A{
         thread_mma.partition_fragment_A(smem_tensor_A)}; // (MMA, MMA_M, MMA_K)
@@ -621,7 +623,7 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma(
 
         // Compute gemm on thread_layout_C thread-partitioned smem.
         // This implicitly uses the UniversalFMA GEMM atom.
-        cute::gemm(mma, thread_layout_C_register_tensor_A,
+        cute::gemm(tiled_mma, thread_layout_C_register_tensor_A,
                    thread_layout_C_register_tensor_B,
                    thread_layout_C_register_tensor_C); // (BLK_M / THR_M, BLK_N
                                                        // / THR_N) += (BLK_M /
@@ -655,7 +657,7 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
     ASmemLayout smem_layout_A, AThreadLayout, GmemTiledCopyA gmem_tiled_copy_A,
     TB const* B, BStride stride_B, BSmemLayout smem_layout_B, BThreadLayout,
     GmemTiledCopyB gmem_tiled_copy_B, TC* C, CStride stride_C, CSmemLayout,
-    CThreadLayout, TiledMMA mma, Alpha alpha, Beta beta)
+    CThreadLayout, TiledMMA tiled_mma, Alpha alpha, Beta beta)
 {
     CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{}); // (M, N, K)
     CUTE_STATIC_ASSERT_V(cute::rank(cta_tiler) ==
@@ -663,7 +665,8 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
 
     CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) ==
                          cute::size(gmem_tiled_copy_B));
-    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) == cute::size(mma));
+    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) ==
+                         cute::size(tiled_mma));
 
     // CTA tiler has to be static.
     CUTE_STATIC_ASSERT_V(cute::is_static<CtaTiler>{});
@@ -778,7 +781,7 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
         thread_layout_B_smem_tensor_B)}; // (CPY, CPY_N, CPY_K)
 
     // Partition via MMA.
-    auto thread_mma{mma.get_slice(threadIdx.x)};
+    auto thread_mma{tiled_mma.get_slice(threadIdx.x)};
     auto thread_layout_C_smem_tensor_A{
         thread_mma.partition_A(smem_tensor_A)}; // (MMA, MMA_M, MMA_K)
     auto thread_layout_C_smem_tensor_B{
@@ -1053,9 +1056,9 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm70_pipeline(
                 }
 #endif
             }
-            // Perform mma for the current mma iteration.
+            // Perform tiled_mma for the current tiled_mma iteration.
             cute::gemm(
-                mma,
+                tiled_mma,
                 thread_layout_C_register_tensor_A(cute::_, cute::_, mma_idx_k),
                 thread_layout_C_register_tensor_B(cute::_, cute::_, mma_idx_k),
                 thread_layout_C_register_tensor_C);
@@ -1086,7 +1089,7 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
     ASmemLayout smem_layout_A, AThreadLayout, GmemTiledCopyA gmem_tiled_copy_A,
     TB const* B, BStride stride_B, BSmemLayout smem_layout_B, BThreadLayout,
     GmemTiledCopyB gmem_tiled_copy_B, TC* C, CStride stride_C, CSmemLayout,
-    CThreadLayout, TiledMMA mma, Alpha alpha, Beta beta)
+    CThreadLayout, TiledMMA tiled_mma, Alpha alpha, Beta beta)
 {
     CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{}); // (M, N, K)
     CUTE_STATIC_ASSERT_V(cute::rank(cta_tiler) ==
@@ -1102,7 +1105,8 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
 
     CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) ==
                          cute::size(gmem_tiled_copy_B));
-    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) == cute::size(mma));
+    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) ==
+                         cute::size(tiled_mma));
 
     // Shared memory layouts have to match CTA tiler.
     CUTE_STATIC_ASSERT_V(cute::size<0>(smem_layout_A) ==
@@ -1217,7 +1221,7 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
         thread_layout_B_smem_tensor_B)}; // (CPY, CPY_N, CPY_K, PIPE)
 
     // Partition via MMA.
-    auto thread_mma{mma.get_slice(threadIdx.x)};
+    auto thread_mma{tiled_mma.get_slice(threadIdx.x)};
     auto thread_layout_C_smem_tensor_A{
         thread_mma.partition_A(smem_tensor_A)}; // (MMA, MMA_M, MMA_K, PIPE)
     auto thread_layout_C_smem_tensor_B{
@@ -1558,9 +1562,9 @@ general_matrix_multiplication_gmem_tiled_copy_tiled_mma_sm80_pipeline(
                 smem_pipeline_read = smem_pipeline_read % NUM_SMEM_PIPELINES;
             }
 
-            // Perform mma for the current mma iteration.
+            // Perform tiled_mma for the current tiled_mma iteration.
             cute::gemm(
-                mma,
+                tiled_mma,
                 thread_layout_C_register_tensor_A(cute::_, cute::_, mma_idx_k),
                 thread_layout_C_register_tensor_B(cute::_, cute::_, mma_idx_k),
                 thread_layout_C_register_tensor_C);
@@ -1593,7 +1597,7 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
     SmemTiledCopyA smem_tiled_copy_A, TB const* B, BStride stride_B,
     BSmemLayout smem_layout_B, BThreadLayout, GmemTiledCopyB gmem_tiled_copy_B,
     SmemTiledCopyB smem_tiled_copy_B, TC* C, CStride stride_C, CSmemLayout,
-    CThreadLayout, TiledMMA mma, Alpha alpha, Beta beta)
+    CThreadLayout, TiledMMA tiled_mma, Alpha alpha, Beta beta)
 {
     CUTE_STATIC_ASSERT_V(cute::rank(shape_MNK) == cute::Int<3>{}); // (M, N, K)
     CUTE_STATIC_ASSERT_V(cute::rank(cta_tiler) ==
@@ -1609,7 +1613,8 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
 
     CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) ==
                          cute::size(gmem_tiled_copy_B));
-    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) == cute::size(mma));
+    CUTE_STATIC_ASSERT_V(cute::size(gmem_tiled_copy_A) ==
+                         cute::size(tiled_mma));
 
     // Shared memory layouts have to match CTA tiler.
     CUTE_STATIC_ASSERT_V(cute::size<0>(smem_layout_A) ==
@@ -1724,7 +1729,7 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
         thread_layout_B_smem_tensor_B)}; // (CPY, CPY_N, CPY_K, PIPE)
 
     // Partition via MMA.
-    auto thread_mma{mma.get_slice(threadIdx.x)};
+    auto thread_mma{tiled_mma.get_slice(threadIdx.x)};
     // Tensor used for MMA.
     auto thread_layout_C_register_tensor_A{
         thread_mma.partition_fragment_A(smem_tensor_A(
@@ -2086,9 +2091,9 @@ general_matrix_multiplication_gmem_tiled_copy_smem_tiled_copy_tiled_mma_sm80_pip
                 smem_pipeline_read = smem_pipeline_read % NUM_SMEM_PIPELINES;
             }
 
-            // Perform mma for the current mma iteration.
+            // Perform tiled_mma for the current tiled_mma iteration.
             cute::gemm(
-                mma,
+                tiled_mma,
                 thread_layout_C_register_tensor_A(cute::_, cute::_, mma_idx_k),
                 thread_layout_C_register_tensor_B(cute::_, cute::_, mma_idx_k),
                 thread_layout_C_register_tensor_C);
