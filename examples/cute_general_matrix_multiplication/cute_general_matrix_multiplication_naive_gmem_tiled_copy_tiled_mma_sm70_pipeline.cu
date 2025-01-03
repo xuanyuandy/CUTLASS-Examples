@@ -147,8 +147,8 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
             (cute::size<0>(thread_layout_B) * cute::size<0>(vector_layout_B)) ==
         cute::Int<0>{}); // BLK_N % (THR_N * NUM_VECTOR_ELEMENTS_B) == 0
 
-    auto mma{cute::make_tiled_mma(cute::UniversalFMA<TA, TB, TC>{},
-                                  thread_layout_C)};
+    auto tiled_mma{cute::make_tiled_mma(cute::UniversalFMA<TA, TB, TC>{},
+                                        thread_layout_C)};
 
     // Swizzle parameters.
     constexpr int NUM_BASE_BITS_A{constexpr_log2(NUM_VECTOR_ELEMENTS_A)};
@@ -186,7 +186,7 @@ static cudaError_t gemm_base_gmem_tiled_copy_tiled_mma(
         gemm_shape, cta_tiler, A, stride_A, smem_layout_A_swizzled,
         thread_layout_A, gmem_tiled_copy_A, B, stride_B, smem_layout_B_swizzled,
         thread_layout_B, gmem_tiled_copy_B, C, stride_C, smem_layout_C,
-        thread_layout_C, mma, alpha, beta);
+        thread_layout_C, tiled_mma, alpha, beta);
 
     return cudaGetLastError();
 }
