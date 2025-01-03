@@ -257,6 +257,9 @@ static __global__ void general_matrix_multiplication_naive(
     // Clear the accumulators.
     cute::clear(thread_layout_C_register_tensor_C);
 
+#ifdef NO_BOUNDS_CHECK
+
+#else
     // Create predicate tensors.
     auto thread_layout_A_predicate_tensor_A{cute::make_tensor<bool>(
         cute::make_shape(cute::size<0>(thread_layout_A_global_block_tensor_A),
@@ -322,12 +325,21 @@ static __global__ void general_matrix_multiplication_naive(
                     cute::size<1>(shape_MNK);
         }
     }
+#endif
 
     // Perform the gemm computation loop.
     auto const num_tiles_k{cute::size<2>(global_block_tensor_A)}; // k
 
     for (auto tile_idx_k{0}; tile_idx_k < num_tiles_k; ++tile_idx_k)
     {
+#ifdef NO_BOUNDS_CHECK
+        cute::copy(
+            thread_layout_A_global_block_tensor_A(cute::_, cute::_, tile_idx_k),
+            thread_layout_A_smem_tensor_A);
+        cute::copy(
+            thread_layout_B_global_block_tensor_B(cute::_, cute::_, tile_idx_k),
+            thread_layout_B_smem_tensor_B);
+#else
         // Clear the shared memory buffers.
         // This is necessary when predicates are used for copying data from
         // global memory to shared memory so that mma will not be affected by
@@ -365,7 +377,7 @@ static __global__ void general_matrix_multiplication_naive(
                               thread_layout_B_smem_tensor_B(cute::_, k));
             }
         }
-
+#endif
         // // Copy the data from global memory to shared memory for data reuse.
         // // This is the only place where shared memory bank conflicts can
         // happen,
@@ -420,9 +432,14 @@ static __global__ void general_matrix_multiplication_naive(
     //                                             beta
     //                                             // * (BLK_M / THR_M, BLK_N /
     //                                             // THR_N)
+#ifdef NO_BOUNDS_CHECK
+    cute::axpby(alpha, thread_layout_C_register_tensor_C, beta,
+                thread_layout_C_global_block_tensor_C);
+#else
     cute::axpby(alpha, thread_layout_C_register_tensor_C, beta,
                 thread_layout_C_global_block_tensor_C,
                 thread_layout_C_predicate_tensor_C);
+#endif
 }
 
 template <class TA, class TB, class TC, class Alpha, class Beta, class AStride,
