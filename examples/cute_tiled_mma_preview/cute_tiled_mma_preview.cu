@@ -11,6 +11,11 @@
 
 int main(int argc, const char** argv)
 {
+    // Tiled MMA requires everything to be static.
+    // Therefore, this preview program does not allow user to configure
+    // dynamically. To preview a new tiled MMA configuration, the user has to
+    // modify this program and recompile.
+
     // Configure data type.
     using TA = cute::half_t;
     using TB = cute::half_t;
