@@ -88,7 +88,7 @@ int main(int argc, const char** argv)
     // But the number of registers required for processing the tiled MMA
     // increases.
     constexpr int NUM_MMA_TILE_M{1};
-    constexpr int NUM_MMA_TILE_N{4};
+    constexpr int NUM_MMA_TILE_N{2};
     constexpr int NUM_MMA_TILE_K{1};
     constexpr int MMA_TILE_M{cute::get<0>(mma_atom_shape) * MMA_LAYOUT_M *
                              NUM_MMA_TILE_M};
