@@ -106,6 +106,10 @@ int main(int argc, const char** argv)
                        MMA_LAYOUT_M * MMA_LAYOUT_N * MMA_LAYOUT_K *
                            cute::size(decltype(mma_atom)::ThrID{}));
 
+    std::cout << "mma_atom" << std::endl;
+    cute::print(mma_atom);
+    std::cout << std::endl;
+
     std::cout << "tiled_mma" << std::endl;
     cute::print(tiled_mma);
     std::cout << std::endl;
