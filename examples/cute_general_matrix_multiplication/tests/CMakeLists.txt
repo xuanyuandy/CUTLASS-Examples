@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.28)
 
 project(CUTE-GENERAL-MATRIX-MULTIPLICATION-TEST VERSION 0.0.1 LANGUAGES CXX CUDA)
 
-find_package(GTest REQUIRED)
+
 find_package(CUDAToolkit REQUIRED)
 
 find_path(CUTE_GENERAL_MATRIX_MULTIPLICATION_INCLUDE cute_general_matrix_multiplication.hpp HINTS ${CMAKE_SOURCE_DIR}/examples/cute_general_matrix_multiplication/)

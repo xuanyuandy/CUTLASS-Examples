@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.28)
 
 project(CUTE-VECTOR-COPY-TEST VERSION 0.0.1 LANGUAGES CXX CUDA)
 
-find_package(GTest REQUIRED)
+
 find_package(CUDAToolkit REQUIRED)
 
 find_path(CUTE_VECTOR_COPY_INCLUDE cute_vector_copy.hpp HINTS ${CMAKE_SOURCE_DIR}/examples/cute_vector_copy/)

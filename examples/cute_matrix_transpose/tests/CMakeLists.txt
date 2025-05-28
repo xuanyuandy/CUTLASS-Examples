@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.28)
 
 project(CUTE-TRANSPOSE-TEST VERSION 0.0.1 LANGUAGES CXX CUDA)
 
-find_package(GTest REQUIRED)
+
 find_package(CUDAToolkit REQUIRED)
 
 find_path(CUTE_MATRIX_TRANSPOSE_INCLUDE cute_matrix_transpose.hpp HINTS ${CMAKE_SOURCE_DIR}/examples/cute_matrix_transpose/)

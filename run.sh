@@ -1,0 +1,1 @@
+ctest --test-dir build/ --tests-regex "Test.*" --verbose
